@@ -1,0 +1,16 @@
+<Project>
+
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <!--
+      CA1707 objects to underscores in member names. Test methods are the one place the
+      convention is the opposite: a name like
+      A_tunnel_that_refuses_to_come_down_faults_rather_than_reporting_a_clean_disconnect
+      is a sentence a reader can act on, and PascalCase would make it unreadable. The rule
+      is off for test projects only.
+    -->
+    <NoWarn>$(NoWarn);CA1707</NoWarn>
+  </PropertyGroup>
+
+</Project>
