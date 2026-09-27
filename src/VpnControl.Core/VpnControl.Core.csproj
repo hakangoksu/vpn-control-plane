@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>VpnControl.Core</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- X25519 key agreement keys for WireGuard. The .NET base class library
+         has no X25519 primitive on net8.0, so this is the smallest dependency
+         that does the job without hand-rolling curve arithmetic. -->
+    <PackageReference Include="BouncyCastle.Cryptography" Version="2.6.2" />
+
+    <!-- IHttpClientFactory, IOptions and ILogger abstractions. Referencing the
+         abstractions rather than the hosting packages keeps this library usable
+         from the API, the desktop app and the tests alike. -->
+    <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="8.0.2" />
+  </ItemGroup>
+
+</Project>
