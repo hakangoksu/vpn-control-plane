@@ -1,0 +1,59 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VpnControl.Desktop.ViewModels"
+             x:Class="VpnControl.Desktop.Views.ConnectionView"
+             x:DataType="vm:ConnectionViewModel">
+
+  <StackPanel Spacing="14">
+
+    <!-- Status line. The dot's colour comes from the state through a converter, so the
+         in-between states do not borrow the connected colour. -->
+    <StackPanel Orientation="Horizontal" Spacing="8">
+      <Ellipse Width="12" Height="12"
+               Fill="{Binding State, Converter={StaticResource StateBrush}}"
+               VerticalAlignment="Center" />
+      <TextBlock Text="{Binding StateText}" FontSize="19" FontWeight="SemiBold" VerticalAlignment="Center" />
+    </StackPanel>
+
+    <TextBlock Text="{Binding Detail}" Foreground="#9CA3AF" FontSize="12" TextWrapping="Wrap" />
+
+    <Border Background="#141821" CornerRadius="4" Padding="12">
+      <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" >
+        <Grid.Styles>
+          <Style Selector="TextBlock.label">
+            <Setter Property="Foreground" Value="#6B7280" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Margin" Value="0,3,16,3" />
+          </Style>
+          <Style Selector="TextBlock.value">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Margin" Value="0,3" />
+            <Setter Property="FontFamily" Value="monospace" />
+          </Style>
+        </Grid.Styles>
+
+        <TextBlock Classes="label" Text="Gateway" />
+        <TextBlock Grid.Column="1" Classes="value" Text="{Binding ServerName}" />
+
+        <TextBlock Grid.Row="1" Classes="label" Text="Endpoint" />
+        <TextBlock Grid.Row="1" Grid.Column="1" Classes="value" Text="{Binding Endpoint}" />
+
+        <TextBlock Grid.Row="2" Classes="label" Text="Connected for" />
+        <TextBlock Grid.Row="2" Grid.Column="1" Classes="value" Text="{Binding ElapsedText}" />
+
+        <TextBlock Grid.Row="3" Classes="label" Text="Received" />
+        <TextBlock Grid.Row="3" Grid.Column="1" Classes="value" Text="{Binding BytesReceivedText}" />
+
+        <TextBlock Grid.Row="4" Classes="label" Text="Sent" />
+        <TextBlock Grid.Row="4" Grid.Column="1" Classes="value" Text="{Binding BytesSentText}" />
+
+        <TextBlock Grid.Row="5" Classes="label" Text="Last handshake" />
+        <TextBlock Grid.Row="5" Grid.Column="1" Classes="value" Text="{Binding HandshakeText}" />
+      </Grid>
+    </Border>
+
+    <TextBlock Text="{Binding TunnelDescription}" Foreground="#6B7280" FontSize="11" TextWrapping="Wrap" />
+
+  </StackPanel>
+
+</UserControl>

@@ -1,0 +1,23 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="using:VpnControl.Desktop.Converters"
+             x:Class="VpnControl.Desktop.App"
+             RequestedThemeVariant="Dark">
+
+  <Application.Styles>
+    <FluentTheme />
+  </Application.Styles>
+
+  <Application.Resources>
+    <!--
+      The converters are shared single instances rather than one per binding. Each is
+      stateless, so there is nothing to keep apart, and a list of a hundred rows would
+      otherwise allocate a hundred copies of each.
+    -->
+    <converters:ConnectionStateBrushConverter x:Key="StateBrush" />
+    <converters:LatencyBrushConverter x:Key="LatencyBrush" />
+    <converters:LogLevelBrushConverter x:Key="LogLevelBrush" />
+    <converters:EligibilityOpacityConverter x:Key="EligibilityOpacity" />
+  </Application.Resources>
+
+</Application>

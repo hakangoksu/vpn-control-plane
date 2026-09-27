@@ -1,0 +1,87 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:VpnControl.Desktop.ViewModels"
+             x:Class="VpnControl.Desktop.Views.ServerListView"
+             x:DataType="vm:ServerListViewModel">
+
+  <!--
+    x:DataType turns every binding below into a compiled binding, checked against the
+    view model at build time. A renamed property then breaks the build instead of
+    producing an empty column at runtime.
+  -->
+
+  <Grid RowDefinitions="Auto,*,Auto">
+
+    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+      <TextBlock Text="Gateways" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
+      <Button Grid.Column="1"
+              Content="Refresh"
+              Command="{Binding RefreshCommand}"
+              IsEnabled="{Binding !IsRefreshing}" />
+    </Grid>
+
+    <!-- The header row is a plain Grid with the same column widths as the item template,
+         so the two line up without pulling in a data grid control for four columns. -->
+    <Border Grid.Row="1" BorderBrush="#2A2F3A" BorderThickness="1" CornerRadius="4">
+      <Grid RowDefinitions="Auto,*">
+
+        <Grid Grid.Row="0" ColumnDefinitions="*,120,70,80" Margin="10,8" >
+          <TextBlock Text="Gateway" Foreground="#9CA3AF" FontSize="12" />
+          <TextBlock Grid.Column="1" Text="Location" Foreground="#9CA3AF" FontSize="12" />
+          <TextBlock Grid.Column="2" Text="Load" Foreground="#9CA3AF" FontSize="12" HorizontalAlignment="Right" />
+          <TextBlock Grid.Column="3" Text="Latency" Foreground="#9CA3AF" FontSize="12" HorizontalAlignment="Right" />
+        </Grid>
+
+        <ListBox Grid.Row="1"
+                 ItemsSource="{Binding Servers}"
+                 SelectedItem="{Binding SelectedServer}"
+                 Background="Transparent"
+                 BorderThickness="0">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:ServerRowViewModel">
+              <Grid ColumnDefinitions="*,120,70,80"
+                    ToolTip.Tip="{Binding Details}"
+                    Opacity="{Binding IsEligible, Converter={StaticResource EligibilityOpacity}}">
+
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <!-- The dot marks the gateway the session is on, which the selection
+                       does not: a user can select a row without connecting to it. -->
+                  <TextBlock Text="&#x25CF;"
+                             Foreground="#2E9E4F"
+                             VerticalAlignment="Center"
+                             IsVisible="{Binding IsCurrent}" />
+                  <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                  <Border Background="#1F3A2A" CornerRadius="3" Padding="5,1" IsVisible="{Binding IsFastest}">
+                    <TextBlock Text="fastest" FontSize="10" Foreground="#6EE7A0" />
+                  </Border>
+                </StackPanel>
+
+                <TextBlock Grid.Column="1" Text="{Binding Location}" Foreground="#9CA3AF" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Text="{Binding LoadText}" Foreground="#9CA3AF" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="3"
+                           Text="{Binding LatencyText}"
+                           Foreground="{Binding LatencyMilliseconds, Converter={StaticResource LatencyBrush}}"
+                           HorizontalAlignment="Right"
+                           VerticalAlignment="Center" />
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+
+          <ListBox.Styles>
+            <Style Selector="ListBoxItem">
+              <Setter Property="Padding" Value="10,6" />
+            </Style>
+          </ListBox.Styles>
+        </ListBox>
+
+      </Grid>
+    </Border>
+
+    <StackPanel Grid.Row="2" Margin="0,8,0,0" Spacing="2">
+      <TextBlock Text="{Binding Status}" Foreground="#9CA3AF" FontSize="12" TextWrapping="Wrap" />
+      <TextBlock Text="{Binding ProbeDescription}" Foreground="#6B7280" FontSize="11" TextWrapping="Wrap" />
+    </StackPanel>
+
+  </Grid>
+
+</UserControl>
