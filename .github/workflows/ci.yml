@@ -1,0 +1,42 @@
+name: build
+
+# Pushes and pull requests on the default branch. A scheduled run was left out
+# on purpose: nothing here depends on an external service, so a green build
+# stays green until somebody changes the code.
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+# The default token permissions are wider than this workflow needs. It only
+# reads the checkout, so that is all it is given.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up the .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          # global.json pins the SDK feature band, so the version is not repeated
+          # here where it would drift out of step with it.
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        # Warnings are errors here but not on a developer machine. A warning that
+        # survives to the default branch is one nobody is going to come back to,
+        # and failing the build is the only reliable way to stop that.
+        run: dotnet build --configuration Release --no-restore -warnaserror
+
+      - name: Test
+        run: dotnet test --configuration Release --no-build --verbosity normal
