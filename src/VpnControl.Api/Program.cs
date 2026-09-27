@@ -16,10 +16,18 @@ builder.Services.AddOptions<ControlPlaneOptions>()
 
 // The connection string comes from configuration so a test, a container and a developer
 // machine can each point at their own file without a code change.
-string connectionString = builder.Configuration.GetConnectionString("ControlPlane")
-    ?? "Data Source=controlplane.db";
-
-builder.Services.AddDbContext<ControlPlaneDbContext>(options => options.UseSqlite(connectionString));
+//
+// It is read inside the registration callback, from the resolved IConfiguration, rather than
+// from builder.Configuration here. That is not a style preference. Reading it at this point
+// would capture whatever value is present while the builder is still being assembled, and a
+// test host that adds its own configuration source afterwards, which is exactly what
+// WebApplicationFactory does, would be ignored. Two test classes then quietly shared one
+// database file. Resolving it at DI time sees the final configuration.
+builder.Services.AddDbContext<ControlPlaneDbContext>((serviceProvider, options) =>
+{
+    IConfiguration configuration = serviceProvider.GetRequiredService<IConfiguration>();
+    options.UseSqlite(configuration.GetConnectionString("ControlPlane") ?? "Data Source=controlplane.db");
+});
 
 // Registered so the filter's own dependencies are resolved by the container rather than
 // constructed by hand at each endpoint.
