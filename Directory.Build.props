@@ -1,0 +1,33 @@
+<Project>
+
+  <!--
+    Properties shared by every project in the solution. Keeping them here means
+    a new project inherits the same language level, nullable settings and
+    warning policy without anyone copying a csproj by hand.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>12.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+
+    <!-- Warnings are cheap to fix now and expensive to ignore later. -->
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+    <NeutralLanguage>en</NeutralLanguage>
+
+    <!--
+      CA1848 asks for compiled LoggerMessage delegates instead of the
+      ILogger.LogInformation extension methods. That is sound advice for a hot
+      path, and the wrong trade here: it would replace every readable log
+      statement with a partial method declaration and an attribute, for a saving
+      that does not register on a client that logs a handful of lines per session.
+      The rule is off rather than suppressed one call at a time so the reason is
+      recorded in one place.
+    -->
+    <NoWarn>$(NoWarn);CA1848</NoWarn>
+  </PropertyGroup>
+
+</Project>
