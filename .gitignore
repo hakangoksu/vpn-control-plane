@@ -37,3 +37,7 @@ packages/
 # OS noise
 .DS_Store
 Thumbs.db
+
+# local, never committed: real gateways, keys and endpoints
+appsettings.Local.json
+**/appsettings.Local.json
