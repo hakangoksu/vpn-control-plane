@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 560" width="900" height="560" role="img" aria-label="Architecture: Desktop and Api both depend on Core; Tunnel implements Core's IVpnTunnel interface">
+  <defs>
+    <style>
+      .box   { fill: none; stroke: #7d8994; stroke-width: 1.5; rx: 8; }
+      .core  { stroke: #2f8f86; stroke-width: 2; }
+      .title { font: 600 15px ui-sans-serif, "Segoe UI", Helvetica, Arial, sans-serif; fill: #2f8f86; }
+      .sub   { font: 400 12.5px ui-sans-serif, "Segoe UI", Helvetica, Arial, sans-serif; fill: #7d8994; }
+      .item  { font: 400 13px ui-monospace, "SF Mono", Menlo, Consolas, monospace; fill: #8b95a1; }
+      .edge  { stroke: #7d8994; stroke-width: 1.5; fill: none; marker-end: url(#arrow); }
+      .edge2 { stroke: #2f8f86; stroke-width: 1.8; fill: none; marker-end: url(#arrowT); }
+      .lab   { font: 400 12px ui-sans-serif, "Segoe UI", Helvetica, Arial, sans-serif; fill: #7d8994; }
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#7d8994"/>
+    </marker>
+    <marker id="arrowT" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2f8f86"/>
+    </marker>
+  </defs>
+
+  <!-- Desktop -->
+  <rect class="box" x="30" y="30" width="360" height="150"/>
+  <text class="title" x="50" y="58">VpnControl.Desktop</text>
+  <text class="sub"   x="50" y="76">Avalonia, XAML and MVVM</text>
+  <text class="item"  x="50" y="100">Views (compiled bindings)</text>
+  <text class="item"  x="50" y="122">MainWindow / ServerList / Connection / Log VMs</text>
+  <text class="item"  x="50" y="144">IUiDispatcher   the seam that keeps VMs testable</text>
+  <text class="sub"   x="50" y="166">no business logic, no platform calls</text>
+
+  <!-- Api -->
+  <rect class="box" x="510" y="30" width="360" height="150"/>
+  <text class="title" x="530" y="58">VpnControl.Api</text>
+  <text class="sub"   x="530" y="76">ASP.NET Core minimal API</text>
+  <text class="item"  x="530" y="100">ServerEndpoints, PeerEndpoints, HealthEndpoints</text>
+  <text class="item"  x="530" y="122">ApiKeyEndpointFilter</text>
+  <text class="item"  x="530" y="144">ControlPlaneDbContext  to  SQLite</text>
+  <text class="sub"   x="530" y="166">hands out gateways and peer configuration</text>
+
+  <!-- HTTP edge -->
+  <path class="edge" d="M 390 105 L 505 105"/>
+  <text class="lab" x="400" y="96">HTTP: /api/servers, /api/peers</text>
+
+  <!-- Core -->
+  <rect class="box core" x="130" y="240" width="640" height="180"/>
+  <text class="title" x="152" y="268">VpnControl.Core</text>
+  <text class="sub"   x="152" y="286">all the logic worth testing, no UI and no web framework</text>
+  <text class="item"  x="152" y="316">VpnConnectionManager   orchestrates a session</text>
+  <text class="item"  x="152" y="338">ConnectionStateMachine   refuses illegal transitions</text>
+  <text class="item"  x="152" y="360">ServerSelector  +  ILatencyProbe   picks a gateway</text>
+  <text class="item"  x="152" y="382">IServerCatalogClient  (+ RetryPolicy)</text>
+  <text class="item"  x="152" y="404">WireGuardKeyPair  to  WireGuardConfig</text>
+  <text class="item"  x="500" y="404">IVpnTunnel   the platform seam</text>
+
+  <!-- dependency edges into Core -->
+  <path class="edge2" d="M 210 185 L 210 235"/>
+  <path class="edge2" d="M 690 185 L 690 235"/>
+  <text class="lab" x="222" y="212">references</text>
+  <text class="lab" x="600" y="212">references</text>
+
+  <!-- Tunnel -->
+  <rect class="box" x="130" y="465" width="640" height="75"/>
+  <text class="title" x="152" y="492">VpnControl.Tunnel</text>
+  <text class="item"  x="152" y="514">SimulatedTunnel   default, moves no packets</text>
+  <text class="item"  x="470" y="514">WgQuickTunnel   Linux</text>
+  <text class="item"  x="470" y="532">WindowsServiceTunnel   documented gap</text>
+  <text class="sub"   x="152" y="532">the only project that runs external commands</text>
+
+  <path class="edge2" d="M 450 460 L 450 425"/>
+  <text class="lab" x="462" y="448">implements IVpnTunnel</text>
+</svg>
