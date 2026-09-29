@@ -40,38 +40,39 @@
 
   <!-- happy path -->
   <path class="edge" d="M 182 177 L 246 177"/>
-  <text class="lab" x="190" y="168">connect</text>
+  <text class="lab" x="188" y="168">connect</text>
   <path class="edge" d="M 402 177 L 466 177"/>
-  <text class="lab" x="408" y="168">handshake</text>
+  <text class="lab" x="406" y="168">handshake</text>
 
-  <!-- switching loop -->
-  <path class="edge" d="M 600 152 C 640 120, 680 105, 686 99"/>
-  <text class="lab" x="612" y="126">switch</text>
-  <path class="edge" d="M 760 118 C 720 140, 660 158, 624 168"/>
-  <text class="lab" x="672" y="152">new gateway up</text>
+  <!-- switching -->
+  <path class="edge" d="M 600 152 C 640 122, 676 104, 686 99"/>
+  <text class="lab" x="606" y="128">switch</text>
+  <path class="edge" d="M 758 118 C 716 142, 656 160, 624 168"/>
+  <text class="lab" x="664" y="150">new gateway up</text>
 
   <!-- teardown -->
   <path class="edge" d="M 545 208 L 545 306"/>
   <text class="lab" x="554" y="262">disconnect</text>
-  <path class="edge" d="M 466 337 C 380 337, 240 300, 130 208"/>
-  <text class="lab" x="300" y="300">interface is down</text>
+  <path class="edge" d="M 470 352 C 380 404, 190 396, 118 212"/>
+  <text class="lab" x="214" y="400">interface is down</text>
 
   <!-- cancel mid handshake -->
-  <path class="edge" d="M 340 206 C 370 250, 430 300, 466 325"/>
-  <text class="lab" x="352" y="258">user cancels</text>
+  <path class="edge" d="M 398 204 C 430 250, 450 300, 466 322"/>
+  <text class="lab" x="420" y="296">user cancels</text>
 
   <!-- faults -->
-  <path class="fault" d="M 300 206 L 300 306"/>
-  <text class="labB" x="196" y="262">handshake fails</text>
-  <path class="fault" d="M 470 190 C 420 240, 380 280, 368 306"/>
-  <text class="labB" x="398" y="240">tunnel drops</text>
-  <path class="fault" d="M 470 330 L 402 335"/>
-  <text class="labB" x="404" y="378">teardown fails, so it never</text>
-  <text class="labB" x="404" y="394">reports a clean disconnect</text>
+  <path class="fault" d="M 290 206 L 290 306"/>
+  <text class="labB" x="180" y="244">handshake fails</text>
+  <path class="fault" d="M 478 196 C 440 236, 410 280, 400 306"/>
+  <text class="labB" x="430" y="242">tunnel drops</text>
+  <path class="fault" d="M 466 332 L 404 332"/>
+  <text class="labB" x="438" y="372">teardown fails, so a broken</text>
+  <text class="labB" x="438" y="388">teardown is never reported clean</text>
 
-  <!-- retry and cleanup out of faulted -->
-  <path class="edge" d="M 325 306 C 325 260, 325 230, 325 208"/>
-  <text class="lab" x="334" y="262">retry</text>
-  <path class="edge" d="M 250 330 C 170 320, 120 260, 108 208"/>
-  <text class="lab" x="120" y="300">give up</text>
+  <!-- out of faulted -->
+  <path class="edge" d="M 356 306 L 356 208"/>
+  <text class="lab" x="364" y="252">retry</text>
+  <path class="edge" d="M 252 322 C 180 306, 128 258, 112 210"/>
+  <text class="lab" x="112" y="274">give up</text>
+
 </svg>

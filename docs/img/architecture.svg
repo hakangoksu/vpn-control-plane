@@ -31,14 +31,15 @@
   <rect class="box" x="510" y="30" width="360" height="150"/>
   <text class="title" x="530" y="58">VpnControl.Api</text>
   <text class="sub"   x="530" y="76">ASP.NET Core minimal API</text>
-  <text class="item"  x="530" y="100">ServerEndpoints, PeerEndpoints, HealthEndpoints</text>
-  <text class="item"  x="530" y="122">ApiKeyEndpointFilter</text>
-  <text class="item"  x="530" y="144">ControlPlaneDbContext  to  SQLite</text>
-  <text class="sub"   x="530" y="166">hands out gateways and peer configuration</text>
+  <text class="item"  x="530" y="100">ServerEndpoints, PeerEndpoints,</text>
+  <text class="item"  x="530" y="120">HealthEndpoints, ApiKeyEndpointFilter</text>
+  <text class="item"  x="530" y="140">ControlPlaneDbContext  to  SQLite</text>
+  <text class="sub"   x="530" y="164">hands out gateways and peer configuration</text>
 
   <!-- HTTP edge -->
-  <path class="edge" d="M 390 105 L 505 105"/>
-  <text class="lab" x="400" y="96">HTTP: /api/servers, /api/peers</text>
+  <path class="edge" d="M 392 120 L 505 120"/>
+  <text class="lab" x="448" y="96" text-anchor="middle">HTTP</text>
+  <text class="lab" x="448" y="111" text-anchor="middle">/api/servers</text>
 
   <!-- Core -->
   <rect class="box core" x="130" y="240" width="640" height="180"/>
@@ -58,13 +59,14 @@
   <text class="lab" x="600" y="212">references</text>
 
   <!-- Tunnel -->
-  <rect class="box" x="130" y="465" width="640" height="75"/>
-  <text class="title" x="152" y="492">VpnControl.Tunnel</text>
-  <text class="item"  x="152" y="514">SimulatedTunnel   default, moves no packets</text>
-  <text class="item"  x="470" y="514">WgQuickTunnel   Linux</text>
-  <text class="item"  x="470" y="532">WindowsServiceTunnel   documented gap</text>
-  <text class="sub"   x="152" y="532">the only project that runs external commands</text>
+  <rect class="box" x="130" y="460" width="640" height="92"/>
+  <text class="title" x="152" y="486">VpnControl.Tunnel</text>
+  <text class="item"  x="152" y="510">SimulatedTunnel   default</text>
+  <text class="item"  x="430" y="510">WgQuickTunnel   Linux</text>
+  <text class="item"  x="152" y="530">moves no packets</text>
+  <text class="item"  x="430" y="530">WindowsServiceTunnel   documented gap</text>
+  <text class="sub"   x="152" y="546">the only project that runs external commands</text>
 
-  <path class="edge2" d="M 450 460 L 450 425"/>
+  <path class="edge2" d="M 450 456 L 450 425"/>
   <text class="lab" x="462" y="448">implements IVpnTunnel</text>
 </svg>
