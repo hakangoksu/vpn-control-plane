@@ -85,4 +85,17 @@ public sealed class ControlPlaneOptions
     /// </remarks>
     [Range(1, 60000)]
     public int MaxPeersPerServer { get; set; } = 250;
+
+    /// <summary>
+    /// Longest time a registration waits for the gateway to confirm it has admitted the new
+    /// peer, in seconds. Zero answers at once.
+    /// </summary>
+    /// <remarks>
+    /// Waiting means the client's first handshake finds the key already in place. Without the
+    /// wait, the handshake can arrive first, be dropped, and cost the client the five seconds
+    /// WireGuard waits before retrying. The wait is bounded so a gateway that is down delays a
+    /// registration by this much and no more.
+    /// </remarks>
+    [Range(0, 30)]
+    public double ActivationWaitSeconds { get; set; } = 5;
 }

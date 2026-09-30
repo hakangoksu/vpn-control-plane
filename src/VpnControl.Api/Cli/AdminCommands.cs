@@ -72,8 +72,9 @@ public sealed class AdminCommands(ControlPlaneDbContext dbContext, TimeProvider 
     /// <remarks>
     /// The registrations are deleted in the same transaction that marks the device revoked.
     /// The token stops working on the next request, and each gateway drops the device's
-    /// peer on its next sync, so an open tunnel stops passing traffic within one poll
-    /// interval rather than lasting until the client disconnects of its own accord.
+    /// peer on its next poll. This command runs in its own process, so it cannot wake the
+    /// gateways' held polls the way a change made through the API does; the poll's own
+    /// timeout, ten seconds, bounds how long an open tunnel keeps passing traffic.
     /// </remarks>
     public async Task<int?> RevokeDeviceAsync(string deviceId, CancellationToken cancellationToken)
     {

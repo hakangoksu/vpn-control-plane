@@ -58,6 +58,7 @@ public static class PeerEndpoints
     /// <param name="request">Gateway identifier and client public key.</param>
     /// <param name="httpContext">Current request, carrying the authenticated device.</param>
     /// <param name="dbContext">Database session for this request.</param>
+    /// <param name="coordinator">Wakes the gateway's poll and reports its acknowledgement.</param>
     /// <param name="options">Address range, DNS and keepalive settings.</param>
     /// <param name="logger">Destination for registration diagnostics.</param>
     /// <param name="cancellationToken">Cancelled when the client disconnects.</param>
@@ -66,6 +67,7 @@ public static class PeerEndpoints
         PeerRegistrationRequest request,
         HttpContext httpContext,
         ControlPlaneDbContext dbContext,
+        GatewaySyncCoordinator coordinator,
         IOptions<ControlPlaneOptions> options,
         ILogger<ControlPlaneDbContext> logger,
         CancellationToken cancellationToken)
@@ -169,6 +171,20 @@ public static class PeerEndpoints
                 statusCode: StatusCodes.Status409Conflict);
         }
 
+        // Every gateway that lost or gained a peer is told, so each one's waiting poll returns
+        // at once. The new gateway's version is the one the client waits for.
+        foreach (string otherGateway in previous.Select(p => p.ServerId).Where(id => id != server.Id).Distinct())
+        {
+            coordinator.MarkChanged(otherGateway);
+        }
+
+        long version = coordinator.MarkChanged(server.Id);
+        bool active = await coordinator.WaitUntilAppliedAsync(
+            server.Id,
+            version,
+            TimeSpan.FromSeconds(settings.ActivationWaitSeconds),
+            cancellationToken).ConfigureAwait(false);
+
         logger.LogInformation(
             "Registered peer {PeerId} for device {DeviceId} on {ServerId} with address {Address}.",
             peer.Id,
@@ -189,6 +205,7 @@ public static class PeerEndpoints
             PersistentKeepaliveSeconds = settings.PersistentKeepaliveSeconds > 0
                 ? settings.PersistentKeepaliveSeconds
                 : null,
+            ActiveOnGateway = active,
         };
 
         return Results.Created($"/api/peers/{peer.Id}", configuration);
@@ -203,12 +220,14 @@ public static class PeerEndpoints
     /// <param name="id">Peer identifier returned at registration.</param>
     /// <param name="httpContext">Current request, carrying the authenticated device.</param>
     /// <param name="dbContext">Database session for this request.</param>
+    /// <param name="coordinator">Wakes the gateway's poll so the peer is removed promptly.</param>
     /// <param name="cancellationToken">Cancelled when the client disconnects.</param>
     /// <returns>204 when a registration was removed, 404 when there was none.</returns>
     private static async Task<IResult> UnregisterPeerAsync(
         string id,
         HttpContext httpContext,
         ControlPlaneDbContext dbContext,
+        GatewaySyncCoordinator coordinator,
         CancellationToken cancellationToken)
     {
         DeviceRecord device = DeviceTokenEndpointFilter.GetDevice(httpContext);
@@ -227,6 +246,7 @@ public static class PeerEndpoints
 
         dbContext.Peers.Remove(peer);
         await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        coordinator.MarkChanged(peer.ServerId);
 
         return Results.NoContent();
     }

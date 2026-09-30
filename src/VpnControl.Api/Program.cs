@@ -12,6 +12,14 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 // clone, and it is added last so it overrides the committed defaults.
 builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: false);
 
+if (AdminCli.IsAdminInvocation(args))
+{
+    // The admin commands print tokens on standard output for a script to capture. The console
+    // logger writes there too, and a log line mixed into a captured token would corrupt it, so
+    // logging is off in this mode. Failures still surface as exceptions and exit codes.
+    builder.Logging.ClearProviders();
+}
+
 builder.WebHost.ConfigureKestrel(kestrel =>
 {
     // The largest legitimate body is a peer registration of a few hundred bytes. A small cap
@@ -51,6 +59,7 @@ builder.Services.AddScoped<DeviceTokenEndpointFilter>();
 builder.Services.AddScoped<GatewayTokenEndpointFilter>();
 
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<GatewaySyncCoordinator>();
 builder.Services.AddScoped<AdminCommands>();
 
 // Makes unhandled exceptions and bare status codes come back as RFC 9457 problem

@@ -24,7 +24,7 @@ namespace VpnControl.Api.Tests;
 /// provider would have been simpler and would have stopped exercising the real SQL.
 /// </para>
 /// </remarks>
-public sealed class ControlPlaneApiFactory : WebApplicationFactory<Program>
+public class ControlPlaneApiFactory : WebApplicationFactory<Program>
 {
     /// <summary>IPv6 /64 the factory configures, so the tests can check the addresses handed out.</summary>
     public const string TestIpv6Prefix = "fd4c:7a2e:91b3:0";
@@ -49,6 +49,10 @@ public sealed class ControlPlaneApiFactory : WebApplicationFactory<Program>
                 ["ConnectionStrings:ControlPlane"] = $"Data Source={_databasePath}",
                 ["ControlPlane:SeedDemoCatalog"] = "true",
                 ["ControlPlane:Ipv6Prefix"] = TestIpv6Prefix,
+
+                // No agent runs in the tests, so a registration would otherwise wait the full
+                // activation window for an acknowledgement that never comes.
+                ["ControlPlane:ActivationWaitSeconds"] = "0",
             }));
     }
 

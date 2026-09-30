@@ -71,6 +71,17 @@ public sealed record PeerConfiguration
     [JsonPropertyName("dnsServers")]
     public IReadOnlyList<string> DnsServers { get; init; } = Array.Empty<string>();
 
+    /// <summary>
+    /// Whether the gateway confirmed it had admitted the key before the response was sent.
+    /// </summary>
+    /// <remarks>
+    /// When <c>false</c>, the gateway had not acknowledged within the control plane's wait.
+    /// The registration is still valid and the gateway admits the key on its next poll; the
+    /// first handshake may simply take one WireGuard retry, about five seconds.
+    /// </remarks>
+    [JsonPropertyName("activeOnGateway")]
+    public bool ActiveOnGateway { get; init; }
+
     /// <summary>Seconds between keepalive packets, or <c>null</c> to send none.</summary>
     /// <remarks>
     /// A keepalive keeps a NAT mapping alive so the gateway can reach a client
