@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore;
 using VpnControl.Api.Data;
 
 namespace VpnControl.Api.Endpoints;
@@ -22,12 +21,10 @@ public static class HealthEndpoints
                     .CanConnectAsync(cancellationToken)
                     .ConfigureAwait(false);
 
-                int serverCount = databaseReachable
-                    ? await dbContext.Servers.CountAsync(cancellationToken).ConfigureAwait(false)
-                    : 0;
-
+                // Status only. This endpoint is anonymous, so it says nothing about how many
+                // gateways or peers exist.
                 return databaseReachable
-                    ? Results.Ok(new { status = "healthy", servers = serverCount })
+                    ? Results.Ok(new { status = "healthy" })
                     : Results.Problem(
                         title: "Database is not reachable.",
                         statusCode: StatusCodes.Status503ServiceUnavailable);

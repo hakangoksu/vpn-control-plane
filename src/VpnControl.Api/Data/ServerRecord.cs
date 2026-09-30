@@ -43,8 +43,26 @@ public sealed class ServerRecord
     [MaxLength(64)]
     public required string PublicKey { get; set; }
 
-    /// <summary>Reported load, 0 to 100.</summary>
-    public required int LoadPercent { get; set; }
+    /// <summary>
+    /// Whether the gateway forwards IPv6 to the internet.
+    /// </summary>
+    /// <remarks>
+    /// Published so the client can show it. A gateway without IPv6 egress still carries the
+    /// client's IPv6 traffic inside the tunnel and rejects it there, so this flag changes
+    /// what works, never what leaks.
+    /// </remarks>
+    public bool Ipv6Egress { get; set; }
+
+    /// <summary>
+    /// SHA-256 of the token the gateway's sync agent presents, as lower case hex, or
+    /// <c>null</c> for a gateway that has no agent.
+    /// </summary>
+    /// <remarks>
+    /// This is one of the columns the note on the class anticipated: it must never reach a
+    /// client, and <see cref="ToContract"/> does not copy it.
+    /// </remarks>
+    [MaxLength(64)]
+    public string? AgentTokenHash { get; set; }
 
     /// <summary>Whether the gateway is advertised to clients.</summary>
     public bool IsEnabled { get; set; } = true;
@@ -53,8 +71,13 @@ public sealed class ServerRecord
     public ICollection<PeerRecord> Peers { get; } = new List<PeerRecord>();
 
     /// <summary>Projects the stored row onto the published contract.</summary>
+    /// <param name="loadPercent">
+    /// Share of the gateway's address pool in use, computed by the caller from the peer
+    /// count. It is derived at read time rather than stored, because a stored figure is only
+    /// as current as whoever last wrote it, and nothing on a gateway reports one.
+    /// </param>
     /// <returns>The gateway as a client sees it.</returns>
-    public VpnServer ToContract() => new()
+    public VpnServer ToContract(int loadPercent) => new()
     {
         Id = Id,
         Name = Name,
@@ -63,7 +86,8 @@ public sealed class ServerRecord
         EndpointHost = EndpointHost,
         EndpointPort = EndpointPort,
         PublicKey = PublicKey,
-        LoadPercent = LoadPercent,
+        LoadPercent = loadPercent,
         IsEnabled = IsEnabled,
+        Ipv6Egress = Ipv6Egress,
     };
 }

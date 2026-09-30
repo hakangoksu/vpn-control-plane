@@ -4,31 +4,39 @@ using VpnControl.Core.Servers;
 namespace VpnControl.Api.Data;
 
 /// <summary>
-/// Creates the database if it is missing and puts the fictional gateways in it.
+/// Brings the database schema up to date and, when asked, fills it with the fictional gateways.
 /// </summary>
 /// <remarks>
-/// Uses <c>EnsureCreatedAsync</c> rather than EF Core migrations. That is the right choice
-/// here and the wrong one for a real service, so it is worth being explicit about why: this
-/// schema has no history to preserve, the database is disposable, and a migrations folder
-/// would add ceremony to a project whose subject is not schema evolution. A service with
-/// data anyone cares about needs migrations, because <c>EnsureCreated</c> cannot alter an
-/// existing schema and will silently leave an old one in place.
+/// The schema is managed with EF Core migrations. A deployment keeps its database across
+/// upgrades, and <c>EnsureCreated</c> cannot alter an existing schema: it would silently leave
+/// the old one in place and the first query against a new column would fail. Migrations apply
+/// exactly the changes the database has not seen yet.
+/// <para>
+/// Applying them at startup suits a single instance, which is what this deployment runs. With
+/// several instances starting together, two could race to apply the same migration, and the
+/// step would move into the deployment pipeline instead.
+/// </para>
 /// </remarks>
 public static class DatabaseSeeder
 {
-    /// <summary>Ensures the schema exists and seeds it once.</summary>
-    /// <param name="dbContext">Context to create and seed.</param>
+    /// <summary>Applies pending migrations and seeds the demo catalog if requested.</summary>
+    /// <param name="dbContext">Context to migrate and seed.</param>
+    /// <param name="seedDemoCatalog">
+    /// Whether to insert the fictional gateways into an empty catalog. Off outside development,
+    /// so a real deployment never advertises a gateway that does not exist.
+    /// </param>
     /// <param name="cancellationToken">Abandons the work.</param>
-    /// <returns>Number of gateways inserted, which is zero on every run after the first.</returns>
-    public static async Task<int> EnsureSeededAsync(
+    /// <returns>Number of gateways inserted, which is zero whenever nothing was seeded.</returns>
+    public static async Task<int> MigrateAndSeedAsync(
         ControlPlaneDbContext dbContext,
+        bool seedDemoCatalog,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(dbContext);
 
-        await dbContext.Database.EnsureCreatedAsync(cancellationToken).ConfigureAwait(false);
+        await dbContext.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
 
-        if (await dbContext.Servers.AnyAsync(cancellationToken).ConfigureAwait(false))
+        if (!seedDemoCatalog || await dbContext.Servers.AnyAsync(cancellationToken).ConfigureAwait(false))
         {
             return 0;
         }
@@ -44,8 +52,8 @@ public static class DatabaseSeeder
                 EndpointHost = server.EndpointHost,
                 EndpointPort = server.EndpointPort,
                 PublicKey = server.PublicKey,
-                LoadPercent = server.LoadPercent,
                 IsEnabled = server.IsEnabled,
+                Ipv6Egress = server.Ipv6Egress,
             });
         }
 

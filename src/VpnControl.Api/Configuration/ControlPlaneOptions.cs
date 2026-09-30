@@ -16,16 +16,14 @@ public sealed class ControlPlaneOptions
     public const string SectionName = "ControlPlane";
 
     /// <summary>
-    /// Key a caller must present in the <c>X-Api-Key</c> header on the peer endpoints.
+    /// Whether to fill an empty database with the fictional gateways from <c>DemoCatalog</c>.
     /// </summary>
     /// <remarks>
-    /// Illustrative only. A shared static key identifies nobody, cannot be revoked for one
-    /// device and is visible to anyone who can read the client's configuration. It is here
-    /// to show where an endpoint filter attaches and how the endpoints are grouped by who
-    /// may call them. A real deployment would issue a per-user token from a sign-in flow.
+    /// On in development and in the tests, off everywhere else. A deployment with real
+    /// gateways registers them through the admin command line, and a demo row that slipped
+    /// into that catalog would be advertised to clients as a gateway they could connect to.
     /// </remarks>
-    [Required]
-    public string ApiKey { get; set; } = "local-development-key";
+    public bool SeedDemoCatalog { get; set; }
 
     /// <summary>
     /// First two octets of the address range peers are assigned from.
@@ -37,6 +35,24 @@ public sealed class ControlPlaneOptions
     [Required]
     [RegularExpression(@"^\d{1,3}\.\d{1,3}$")]
     public string AddressPrefix { get; set; } = "10.99";
+
+    /// <summary>
+    /// The IPv6 /64 peers are assigned from, written as its first four groups, for example
+    /// <c>fd4c:7a2e:91b3:0</c>. Empty to hand out IPv4 only.
+    /// </summary>
+    /// <remarks>
+    /// A unique local prefix (RFC 4193) rather than a slice of a gateway's public range, for
+    /// two reasons. Not every gateway has public IPv6, and a client needs an address inside
+    /// the tunnel either way so that IPv6 traffic is routed into it rather than around it.
+    /// And RFC 6724 ranks a unique local source below IPv4, so a dual stack destination is
+    /// reached over IPv4 and IPv6 is only used where nothing else would work.
+    /// <para>
+    /// The 40 bit global identifier should be random, as the RFC asks, so that two networks
+    /// using this project do not collide if they are ever joined.
+    /// </para>
+    /// </remarks>
+    [RegularExpression(@"^(f[cd][0-9a-f]{2}(:[0-9a-f]{1,4}){3})?$")]
+    public string Ipv6Prefix { get; set; } = string.Empty;
 
     /// <summary>Resolvers handed to clients for use inside the tunnel.</summary>
     /// <remarks>

@@ -7,9 +7,34 @@ using Xunit;
 
 namespace VpnControl.Api.Tests;
 
-public sealed class ServerEndpointTests(ControlPlaneApiFactory factory) : IClassFixture<ControlPlaneApiFactory>
+public sealed class ServerEndpointTests(ControlPlaneApiFactory factory) : IClassFixture<ControlPlaneApiFactory>, IAsyncLifetime
 {
-    private readonly HttpClient _client = factory.CreateClient();
+    private readonly ControlPlaneApiFactory _factory = factory;
+    private HttpClient _client = null!;
+
+    /// <inheritdoc />
+    public async Task InitializeAsync() => _client = await _factory.CreateDeviceClientAsync();
+
+    /// <inheritdoc />
+    public Task DisposeAsync() => Task.CompletedTask;
+
+    [Fact]
+    public async Task The_catalog_requires_a_device_token()
+    {
+        HttpResponseMessage response = await _factory.CreateClient().GetAsync(new Uri("/api/servers", UriKind.Relative));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task The_catalog_never_exposes_a_gateways_agent_token_hash()
+    {
+        await _factory.AddGatewayAsync("catalog-leak-check");
+
+        string body = await _client.GetStringAsync(new Uri("/api/servers", UriKind.Relative));
+
+        body.Should().NotContainAny("agentToken", "AgentTokenHash", "tokenHash");
+    }
 
     [Fact]
     public async Task The_catalog_returns_the_seeded_gateways()
@@ -88,11 +113,11 @@ public sealed class ServerEndpointTests(ControlPlaneApiFactory factory) : IClass
     }
 
     [Fact]
-    public async Task The_health_endpoint_reports_the_seeded_gateway_count()
+    public async Task The_health_endpoint_answers_anonymously_and_reveals_no_counts()
     {
-        HttpResponseMessage response = await _client.GetAsync(new Uri("/health", UriKind.Relative));
+        HttpResponseMessage response = await _factory.CreateClient().GetAsync(new Uri("/health", UriKind.Relative));
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        (await response.Content.ReadAsStringAsync()).Should().Contain("healthy");
+        (await response.Content.ReadAsStringAsync()).Should().Be("{\"status\":\"healthy\"}");
     }
 }

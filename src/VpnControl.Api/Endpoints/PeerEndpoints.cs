@@ -1,4 +1,3 @@
-using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using VpnControl.Api.Configuration;
@@ -15,7 +14,7 @@ namespace VpnControl.Api.Endpoints;
 /// </summary>
 public static class PeerEndpoints
 {
-    /// <summary>Maps the peer registration endpoints behind the API key filter.</summary>
+    /// <summary>Maps the peer registration endpoints behind the device token filter.</summary>
     /// <param name="routes">Route builder to add to.</param>
     /// <returns>The route builder, so calls can be chained.</returns>
     public static IEndpointRouteBuilder MapPeerEndpoints(this IEndpointRouteBuilder routes)
@@ -27,7 +26,7 @@ public static class PeerEndpoints
         // unprotected.
         RouteGroupBuilder group = routes.MapGroup("/api/peers")
             .WithTags("Peers")
-            .AddEndpointFilter<ApiKeyEndpointFilter>();
+            .AddEndpointFilter<DeviceTokenEndpointFilter>();
 
         group.MapPost("/", RegisterPeerAsync)
             .WithName("RegisterPeer")
@@ -49,7 +48,15 @@ public static class PeerEndpoints
     }
 
     /// <summary>Admits a public key to a gateway and reserves an address for it.</summary>
+    /// <remarks>
+    /// A device holds one registration at a time. Registering again, on the same gateway or
+    /// another, releases whatever the device held before. The client runs one tunnel, so an
+    /// older registration can only belong to a session that ended without releasing it, a
+    /// crash or a lost network, and leaving it would keep a key admitted that nothing will
+    /// ever use. It also caps what a stolen device token can consume at one address.
+    /// </remarks>
     /// <param name="request">Gateway identifier and client public key.</param>
+    /// <param name="httpContext">Current request, carrying the authenticated device.</param>
     /// <param name="dbContext">Database session for this request.</param>
     /// <param name="options">Address range, DNS and keepalive settings.</param>
     /// <param name="logger">Destination for registration diagnostics.</param>
@@ -57,11 +64,13 @@ public static class PeerEndpoints
     /// <returns>201 with the peer configuration, or a problem response.</returns>
     private static async Task<IResult> RegisterPeerAsync(
         PeerRegistrationRequest request,
+        HttpContext httpContext,
         ControlPlaneDbContext dbContext,
         IOptions<ControlPlaneOptions> options,
         ILogger<ControlPlaneDbContext> logger,
         CancellationToken cancellationToken)
     {
+        DeviceRecord device = DeviceTokenEndpointFilter.GetDevice(httpContext);
         var errors = new Dictionary<string, string[]>();
 
         if (string.IsNullOrWhiteSpace(request.ServerId))
@@ -101,8 +110,17 @@ public static class PeerEndpoints
                 statusCode: StatusCodes.Status409Conflict);
         }
 
+        List<PeerRecord> previous = await dbContext.Peers
+            .Where(p => p.DeviceId == device.Id)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        dbContext.Peers.RemoveRange(previous);
+
+        // The device's previous address on this gateway counts as free, because the same
+        // SaveChanges call that inserts the new row deletes the old one.
         List<int> usedIndexes = await dbContext.Peers
-            .Where(p => p.ServerId == server.Id)
+            .Where(p => p.ServerId == server.Id && p.DeviceId != device.Id)
             .Select(p => p.AddressIndex)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
@@ -123,10 +141,12 @@ public static class PeerEndpoints
         {
             Id = Guid.NewGuid().ToString("n"),
             ServerId = server.Id,
+            DeviceId = device.Id,
             PublicKey = request.PublicKey,
             AddressIndex = addressIndex,
-            AssignedAddress = FormatAddress(settings.AddressPrefix, addressIndex),
-            DeviceName = request.DeviceName,
+            AssignedAddress = PeerAddressing.FormatIpv4(settings.AddressPrefix, addressIndex),
+            AssignedAddressV6 = PeerAddressing.FormatIpv6(settings.Ipv6Prefix, addressIndex),
+            DeviceName = device.Name,
             CreatedAt = DateTimeOffset.UtcNow,
         };
 
@@ -150,8 +170,9 @@ public static class PeerEndpoints
         }
 
         logger.LogInformation(
-            "Registered peer {PeerId} on {ServerId} with address {Address}.",
+            "Registered peer {PeerId} for device {DeviceId} on {ServerId} with address {Address}.",
             peer.Id,
+            device.Id,
             server.Id,
             peer.AssignedAddress);
 
@@ -160,6 +181,7 @@ public static class PeerEndpoints
             PeerId = peer.Id,
             ServerId = server.Id,
             AssignedAddress = peer.AssignedAddress,
+            AssignedAddressV6 = peer.AssignedAddressV6,
             ServerPublicKey = server.PublicKey,
             Endpoint = $"{server.EndpointHost}:{server.EndpointPort}",
             AllowedIps = [.. settings.AllowedIps],
@@ -172,18 +194,27 @@ public static class PeerEndpoints
         return Results.Created($"/api/peers/{peer.Id}", configuration);
     }
 
-    /// <summary>Releases a registration.</summary>
+    /// <summary>Releases a registration the calling device owns.</summary>
+    /// <remarks>
+    /// A registration that exists but belongs to another device gets the same 404 as one
+    /// that does not exist, so a caller cannot use this endpoint to discover other devices'
+    /// peer identifiers.
+    /// </remarks>
     /// <param name="id">Peer identifier returned at registration.</param>
+    /// <param name="httpContext">Current request, carrying the authenticated device.</param>
     /// <param name="dbContext">Database session for this request.</param>
     /// <param name="cancellationToken">Cancelled when the client disconnects.</param>
     /// <returns>204 when a registration was removed, 404 when there was none.</returns>
     private static async Task<IResult> UnregisterPeerAsync(
         string id,
+        HttpContext httpContext,
         ControlPlaneDbContext dbContext,
         CancellationToken cancellationToken)
     {
+        DeviceRecord device = DeviceTokenEndpointFilter.GetDevice(httpContext);
+
         PeerRecord? peer = await dbContext.Peers
-            .FirstOrDefaultAsync(p => p.Id == id, cancellationToken)
+            .FirstOrDefaultAsync(p => p.Id == id && p.DeviceId == device.Id, cancellationToken)
             .ConfigureAwait(false);
 
         if (peer is null)
@@ -221,29 +252,5 @@ public static class PeerEndpoints
         }
 
         return candidate;
-    }
-
-    /// <summary>
-    /// Renders an address index as a /32 inside the configured prefix.
-    /// </summary>
-    /// <param name="prefix">First two octets, for example <c>10.99</c>.</param>
-    /// <param name="index">Address index, counting from 1.</param>
-    /// <returns>The address in CIDR form.</returns>
-    /// <remarks>
-    /// A /32 is handed out rather than the whole subnet, because a client should route only
-    /// its own address onto the interface. Giving each client a /16 would have every one of
-    /// them believing it owns the entire range.
-    /// <para>
-    /// The last octet skips 0 and 255, which are the network and broadcast addresses of the
-    /// /24 they sit in, so 254 usable addresses fit in each.
-    /// </para>
-    /// </remarks>
-    private static string FormatAddress(string prefix, int index)
-    {
-        int thirdOctet = index / 254;
-        int fourthOctet = (index % 254) + 1;
-        return string.Create(
-            CultureInfo.InvariantCulture,
-            $"{prefix}.{thirdOctet}.{fourthOctet}/32");
     }
 }

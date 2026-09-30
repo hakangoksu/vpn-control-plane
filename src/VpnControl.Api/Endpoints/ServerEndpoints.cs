@@ -1,5 +1,8 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using VpnControl.Api.Configuration;
 using VpnControl.Api.Data;
+using VpnControl.Api.Security;
 using VpnControl.Core.Servers;
 
 namespace VpnControl.Api.Endpoints;
@@ -11,6 +14,12 @@ namespace VpnControl.Api.Endpoints;
 /// Endpoints are grouped into an extension method per area rather than left in
 /// <c>Program.cs</c>. A minimal API is pleasant until the startup file is four hundred lines
 /// long, and splitting by area keeps each group readable and testable on its own.
+/// <para>
+/// The catalog needs a device token like the peer endpoints do. Every client is enrolled
+/// before it can connect anyway, so requiring the token costs a legitimate client nothing,
+/// and it keeps the list of gateways and their keys away from anyone who merely found the
+/// API's address.
+/// </para>
 /// </remarks>
 public static class ServerEndpoints
 {
@@ -21,18 +30,22 @@ public static class ServerEndpoints
     {
         ArgumentNullException.ThrowIfNull(routes);
 
-        RouteGroupBuilder group = routes.MapGroup("/api/servers").WithTags("Servers");
+        RouteGroupBuilder group = routes.MapGroup("/api/servers")
+            .WithTags("Servers")
+            .AddEndpointFilter<DeviceTokenEndpointFilter>();
 
         group.MapGet("/", GetServersAsync)
             .WithName("GetServers")
             .WithSummary("Lists the gateways, optionally filtered by country or city.")
             .Produces<IReadOnlyList<VpnServer>>()
-            .ProducesValidationProblem();
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status401Unauthorized);
 
         group.MapGet("/{id}", GetServerAsync)
             .WithName("GetServer")
             .WithSummary("Returns one gateway by identifier.")
             .Produces<VpnServer>()
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         return routes;
@@ -40,6 +53,7 @@ public static class ServerEndpoints
 
     /// <summary>Lists gateways, filtered by country and city when asked.</summary>
     /// <param name="dbContext">Database session for this request.</param>
+    /// <param name="options">Pool size the load figure is computed against.</param>
     /// <param name="country">Optional ISO 3166-1 alpha-2 country code.</param>
     /// <param name="city">Optional city name.</param>
     /// <param name="cancellationToken">
@@ -49,6 +63,7 @@ public static class ServerEndpoints
     /// <returns>The matching gateways, or a validation problem.</returns>
     private static async Task<IResult> GetServersAsync(
         ControlPlaneDbContext dbContext,
+        IOptions<ControlPlaneOptions> options,
         string? country,
         string? city,
         CancellationToken cancellationToken)
@@ -83,16 +98,23 @@ public static class ServerEndpoints
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 
-        return Results.Ok(servers.Select(s => s.ToContract()).ToList());
+        Dictionary<string, int> peerCounts = await CountPeersAsync(dbContext, cancellationToken).ConfigureAwait(false);
+        int capacity = options.Value.MaxPeersPerServer;
+
+        return Results.Ok(servers
+            .Select(s => s.ToContract(LoadPercent(peerCounts.GetValueOrDefault(s.Id), capacity)))
+            .ToList());
     }
 
     /// <summary>Returns one gateway.</summary>
     /// <param name="dbContext">Database session for this request.</param>
+    /// <param name="options">Pool size the load figure is computed against.</param>
     /// <param name="id">Gateway identifier.</param>
     /// <param name="cancellationToken">Cancelled when the client disconnects.</param>
     /// <returns>The gateway, or a 404 problem response.</returns>
     private static async Task<IResult> GetServerAsync(
         ControlPlaneDbContext dbContext,
+        IOptions<ControlPlaneOptions> options,
         string id,
         CancellationToken cancellationToken)
     {
@@ -101,11 +123,38 @@ public static class ServerEndpoints
             .FirstOrDefaultAsync(s => s.Id == id, cancellationToken)
             .ConfigureAwait(false);
 
-        return server is null
-            ? Results.Problem(
+        if (server is null)
+        {
+            return Results.Problem(
                 title: "Gateway not found.",
                 detail: $"No gateway with id '{id}'.",
-                statusCode: StatusCodes.Status404NotFound)
-            : Results.Ok(server.ToContract());
+                statusCode: StatusCodes.Status404NotFound);
+        }
+
+        int peers = await dbContext.Peers
+            .CountAsync(p => p.ServerId == server.Id, cancellationToken)
+            .ConfigureAwait(false);
+
+        return Results.Ok(server.ToContract(LoadPercent(peers, options.Value.MaxPeersPerServer)));
     }
+
+    /// <summary>Counts registrations per gateway in one grouped query.</summary>
+    private static Task<Dictionary<string, int>> CountPeersAsync(
+        ControlPlaneDbContext dbContext,
+        CancellationToken cancellationToken) =>
+        dbContext.Peers
+            .GroupBy(p => p.ServerId)
+            .Select(g => new { ServerId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.ServerId, x => x.Count, cancellationToken);
+
+    /// <summary>
+    /// Expresses registrations as a share of the gateway's address pool.
+    /// </summary>
+    /// <remarks>
+    /// This is occupancy, not CPU or bandwidth. It is the one load figure the control plane
+    /// knows for certain, and it is labelled as what it is rather than presented as a
+    /// measurement of how busy the machine is.
+    /// </remarks>
+    private static int LoadPercent(int peers, int capacity) =>
+        capacity <= 0 ? 0 : Math.Clamp(peers * 100 / capacity, 0, 100);
 }

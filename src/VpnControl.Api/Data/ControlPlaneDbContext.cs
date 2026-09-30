@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 namespace VpnControl.Api.Data;
 
 /// <summary>
-/// The control plane's database: gateways and the peers registered on them.
+/// The control plane's database: gateways, enrolled devices, and the peers registered on them.
 /// </summary>
 /// <remarks>
 /// SQLite, because a single file needs no service to be installed before the project can be
@@ -18,6 +18,9 @@ public sealed class ControlPlaneDbContext(DbContextOptions<ControlPlaneDbContext
 
     /// <summary>Peer registrations currently held.</summary>
     public DbSet<PeerRecord> Peers => Set<PeerRecord>();
+
+    /// <summary>Devices the operator has enrolled.</summary>
+    public DbSet<DeviceRecord> Devices => Set<DeviceRecord>();
 
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -43,9 +46,26 @@ public sealed class ControlPlaneDbContext(DbContextOptions<ControlPlaneDbContext
 
             // Same reasoning for the address itself.
             peer.HasIndex(p => new { p.ServerId, p.AddressIndex }).IsUnique();
+
+            // Deleting a device takes its registrations with it, and the gateways drop the
+            // matching peers on their next sync.
+            peer.HasOne(p => p.Device)
+                .WithMany(d => d.Peers)
+                .HasForeignKey(p => p.DeviceId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
-        modelBuilder.Entity<ServerRecord>()
-            .HasIndex(s => new { s.Country, s.City });
+        modelBuilder.Entity<DeviceRecord>()
+            .HasIndex(d => d.TokenHash)
+            .IsUnique();
+
+        modelBuilder.Entity<ServerRecord>(server =>
+        {
+            server.HasIndex(s => new { s.Country, s.City });
+
+            // Unique so one token can never authenticate as two gateways. SQLite treats
+            // NULLs as distinct, so gateways without an agent do not collide.
+            server.HasIndex(s => s.AgentTokenHash).IsUnique();
+        });
     }
 }
