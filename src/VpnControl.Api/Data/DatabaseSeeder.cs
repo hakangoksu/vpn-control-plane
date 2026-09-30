@@ -20,6 +20,14 @@ namespace VpnControl.Api.Data;
 public static class DatabaseSeeder
 {
     /// <summary>Applies pending migrations and seeds the demo catalog if requested.</summary>
+    /// <remarks>
+    /// Migrations are applied only when some are pending. Applying them takes a lock that EF
+    /// Core stores as a row in the database, and on SQLite that row outlives a process
+    /// killed while holding it: every later start then waits on it forever. A deployment
+    /// once restarted the container at exactly that moment and the API stopped answering.
+    /// Checking first means the lock is taken only on the start that actually upgrades the
+    /// schema, not on every start.
+    /// </remarks>
     /// <param name="dbContext">Context to migrate and seed.</param>
     /// <param name="seedDemoCatalog">
     /// Whether to insert the fictional gateways into an empty catalog. Off outside development,
@@ -34,7 +42,14 @@ public static class DatabaseSeeder
     {
         ArgumentNullException.ThrowIfNull(dbContext);
 
-        await dbContext.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
+        IEnumerable<string> pending = await dbContext.Database
+            .GetPendingMigrationsAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        if (pending.Any())
+        {
+            await dbContext.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
+        }
 
         if (!seedDemoCatalog || await dbContext.Servers.AnyAsync(cancellationToken).ConfigureAwait(false))
         {
