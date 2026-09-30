@@ -36,9 +36,20 @@ public sealed record PeerConfiguration
     [JsonPropertyName("serverId")]
     public required string ServerId { get; init; }
 
-    /// <summary>Address assigned to the client inside the tunnel, in CIDR form.</summary>
+    /// <summary>IPv4 address assigned to the client inside the tunnel, in CIDR form.</summary>
     [JsonPropertyName("assignedAddress")]
     public required string AssignedAddress { get; init; }
+
+    /// <summary>
+    /// IPv6 address assigned to the client inside the tunnel, in CIDR form, or <c>null</c>
+    /// when the control plane hands out IPv4 only.
+    /// </summary>
+    /// <remarks>
+    /// A separate property rather than a list next to the IPv4 one, so an older client that
+    /// knows nothing about IPv6 still finds the field it expects.
+    /// </remarks>
+    [JsonPropertyName("assignedAddressV6")]
+    public string? AssignedAddressV6 { get; init; }
 
     /// <summary>Base64 encoded public key of the gateway.</summary>
     [JsonPropertyName("serverPublicKey")]

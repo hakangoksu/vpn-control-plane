@@ -14,6 +14,13 @@ namespace VpnControl.Core.Latency;
 /// A TCP connect to a port the operator does answer, typically 443, gives a round trip
 /// that tracks the path well enough to rank gateways, and it needs no privileges.
 /// <para>
+/// A refused connection counts as an answer. A reset comes back from the host's kernel after
+/// exactly one round trip, the same as a SYN-ACK would, so a gateway that rejects the probe
+/// port with a TCP reset can be measured without running any service on it. The gateways in
+/// this project's deployment do exactly that, which keeps their open port count at SSH and
+/// WireGuard.
+/// </para>
+/// <para>
 /// The figure it produces is the TCP handshake time to a different port, which is why
 /// nothing in this project presents it as the tunnel's latency.
 /// </para>
@@ -71,6 +78,10 @@ public sealed class TcpConnectLatencyProbe : ILatencyProbe
         catch (OperationCanceledException)
         {
             return LatencyMeasurement.Failure(server, $"No answer within {_timeout.TotalMilliseconds:F0} ms.");
+        }
+        catch (SocketException ex) when (ex.SocketErrorCode == SocketError.ConnectionRefused)
+        {
+            return LatencyMeasurement.Success(server, Stopwatch.GetElapsedTime(start));
         }
         catch (SocketException ex)
         {

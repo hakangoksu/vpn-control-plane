@@ -21,14 +21,15 @@ public sealed class ServerCatalogOptions
     public string BaseAddress { get; set; } = "http://localhost:5080/";
 
     /// <summary>
-    /// API key sent on the peer endpoints in the <c>X-Api-Key</c> header.
+    /// Token issued to this device by the operator, sent as a bearer credential on every
+    /// request.
     /// </summary>
     /// <remarks>
-    /// A shared static key is not how a real client authenticates. It stands in for
-    /// a token the user obtains by signing in, and it is here to show where the
-    /// credential is attached rather than to be a credible scheme.
+    /// One token per device, so the operator can revoke a lost laptop without touching any
+    /// other client. It belongs in the git-ignored <c>appsettings.Local.json</c>, never in the
+    /// committed settings file.
     /// </remarks>
-    public string? ApiKey { get; set; }
+    public string? DeviceToken { get; set; }
 
     /// <summary>How long a single HTTP attempt may take before it is abandoned.</summary>
     public TimeSpan RequestTimeout { get; set; } = TimeSpan.FromSeconds(10);

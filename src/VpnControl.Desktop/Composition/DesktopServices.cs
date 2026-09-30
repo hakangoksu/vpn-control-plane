@@ -33,6 +33,13 @@ public static class DesktopServices
     {
         HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 
+        // The device token and the real control plane address live in this git-ignored file,
+        // next to the executable. Optional, so a fresh clone still starts in demo mode.
+        builder.Configuration.AddJsonFile(
+            Path.Combine(AppContext.BaseDirectory, "appsettings.Local.json"),
+            optional: true,
+            reloadOnChange: false);
+
         builder.Services.AddOptions<DesktopOptions>()
             .Bind(builder.Configuration.GetSection(DesktopOptions.SectionName));
         builder.Services.AddOptions<VpnConnectionOptions>()
@@ -101,7 +108,7 @@ public static class DesktopServices
     {
         if (desktop.UseRealLatencyProbe)
         {
-            services.AddSingleton<ILatencyProbe>(_ => new TcpConnectLatencyProbe());
+            services.AddSingleton<ILatencyProbe>(_ => new TcpConnectLatencyProbe(desktop.LatencyProbePort));
             return;
         }
 

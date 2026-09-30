@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
@@ -23,8 +24,6 @@ namespace VpnControl.Core.Servers;
 /// </remarks>
 public sealed class HttpServerCatalogClient : IServerCatalogClient
 {
-    private const string ApiKeyHeader = "X-Api-Key";
-
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly HttpClient _httpClient;
@@ -73,7 +72,7 @@ public sealed class HttpServerCatalogClient : IServerCatalogClient
 
         List<VpnServer>? servers = await SendAsync(
             path,
-            () => new HttpRequestMessage(HttpMethod.Get, path),
+            () => Authorized(new HttpRequestMessage(HttpMethod.Get, path)),
             static (response, token) => response.Content.ReadFromJsonAsync<List<VpnServer>>(JsonOptions, token),
             cancellationToken).ConfigureAwait(false);
 
@@ -97,7 +96,7 @@ public sealed class HttpServerCatalogClient : IServerCatalogClient
         // being thrown. Every other non-success status is still a failure.
         return await SendAsync(
             path,
-            () => new HttpRequestMessage(HttpMethod.Get, path),
+            () => Authorized(new HttpRequestMessage(HttpMethod.Get, path)),
             static (response, token) => response.Content.ReadFromJsonAsync<VpnServer>(JsonOptions, token),
             cancellationToken,
             treatNotFoundAsNull: true).ConfigureAwait(false);
@@ -114,15 +113,10 @@ public sealed class HttpServerCatalogClient : IServerCatalogClient
 
         PeerConfiguration? peer = await SendAsync(
             Path,
-            () =>
+            () => Authorized(new HttpRequestMessage(HttpMethod.Post, Path)
             {
-                var message = new HttpRequestMessage(HttpMethod.Post, Path)
-                {
-                    Content = JsonContent.Create(request, options: JsonOptions),
-                };
-                AddApiKey(message);
-                return message;
-            },
+                Content = JsonContent.Create(request, options: JsonOptions),
+            }),
             static (response, token) => response.Content.ReadFromJsonAsync<PeerConfiguration>(JsonOptions, token),
             cancellationToken).ConfigureAwait(false);
 
@@ -138,12 +132,7 @@ public sealed class HttpServerCatalogClient : IServerCatalogClient
 
         Ack? ack = await SendAsync(
             path,
-            () =>
-            {
-                var message = new HttpRequestMessage(HttpMethod.Delete, path);
-                AddApiKey(message);
-                return message;
-            },
+            () => Authorized(new HttpRequestMessage(HttpMethod.Delete, path)),
             static (_, _) => Task.FromResult<Ack?>(Ack.Instance),
             cancellationToken,
             treatNotFoundAsNull: true).ConfigureAwait(false);
@@ -190,12 +179,20 @@ public sealed class HttpServerCatalogClient : IServerCatalogClient
         _ => false,
     };
 
-    private void AddApiKey(HttpRequestMessage message)
+    /// <summary>Attaches the device token, when one is configured.</summary>
+    /// <remarks>
+    /// Set per request rather than on <c>DefaultRequestHeaders</c>, because the factory may
+    /// hand the same <see cref="HttpClient"/> configuration to other typed clients, and a
+    /// credential set there would travel with requests it was never meant for.
+    /// </remarks>
+    private HttpRequestMessage Authorized(HttpRequestMessage message)
     {
-        if (!string.IsNullOrWhiteSpace(_options.ApiKey))
+        if (!string.IsNullOrWhiteSpace(_options.DeviceToken))
         {
-            message.Headers.Add(ApiKeyHeader, _options.ApiKey);
+            message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.DeviceToken);
         }
+
+        return message;
     }
 
     /// <summary>

@@ -44,4 +44,12 @@ public sealed class DesktopOptions
     /// list of failures and a slow refresh, which is accurate and useless.
     /// </remarks>
     public bool UseRealLatencyProbe { get; set; }
+
+    /// <summary>TCP port the real latency probe connects to.</summary>
+    /// <remarks>
+    /// 443 suits a gateway that serves anything over HTTPS. A gateway that exposes nothing
+    /// but WireGuard can instead reject TCP on its WireGuard port with a reset, and the probe
+    /// times the reset; see <c>TcpConnectLatencyProbe</c>.
+    /// </remarks>
+    public int LatencyProbePort { get; set; } = 443;
 }

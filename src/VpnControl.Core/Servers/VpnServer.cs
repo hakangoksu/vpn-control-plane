@@ -76,6 +76,15 @@ public sealed record VpnServer
     [JsonPropertyName("isEnabled")]
     public bool IsEnabled { get; init; } = true;
 
+    /// <summary>Whether the gateway forwards IPv6 traffic to the internet.</summary>
+    /// <remarks>
+    /// When it does not, the client still routes IPv6 into the tunnel and the gateway
+    /// rejects it there, so IPv6 never leaves the machine outside the tunnel. The flag
+    /// tells the user why IPv6-only destinations do not load on this gateway.
+    /// </remarks>
+    [JsonPropertyName("ipv6Egress")]
+    public bool Ipv6Egress { get; init; }
+
     /// <summary><c>host:port</c> form of the endpoint, as WireGuard writes it.</summary>
     [JsonIgnore]
     public string Endpoint => $"{EndpointHost}:{EndpointPort}";

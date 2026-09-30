@@ -29,7 +29,7 @@ public sealed class HttpServerCatalogClientTests
     private static HttpServerCatalogClient CreateClient(
         StubHttpMessageHandler handler,
         int maxAttempts = 3,
-        string? apiKey = null) =>
+        string? deviceToken = null) =>
         new(
             new HttpClient(handler) { BaseAddress = new Uri("http://control-plane.invalid/") },
             Options.Create(new ServerCatalogOptions
@@ -37,7 +37,7 @@ public sealed class HttpServerCatalogClientTests
                 BaseAddress = "http://control-plane.invalid/",
                 MaxAttempts = maxAttempts,
                 RetryBaseDelay = TimeSpan.Zero,
-                ApiKey = apiKey,
+                DeviceToken = deviceToken,
             }),
             NullLogger<HttpServerCatalogClient>.Instance);
 
@@ -163,7 +163,7 @@ public sealed class HttpServerCatalogClientTests
     }
 
     [Fact]
-    public async Task The_api_key_is_sent_on_the_peer_endpoints_and_not_on_the_catalog()
+    public async Task The_device_token_is_sent_as_a_bearer_credential_on_every_request()
     {
         var handler = new StubHttpMessageHandler()
             .Respond(HttpStatusCode.OK, "[]")
@@ -178,13 +178,15 @@ public sealed class HttpServerCatalogClientTests
                 }
                 """);
 
-        HttpServerCatalogClient client = CreateClient(handler, apiKey: "secret-key");
+        HttpServerCatalogClient client = CreateClient(handler, deviceToken: "vpd_test-token");
         await client.GetServersAsync();
         PeerConfiguration peer = await client.RegisterPeerAsync(new PeerRegistrationRequest("lt-vln-01", TestServers.SampleKey));
 
         peer.PeerId.Should().Be("p1");
-        handler.Requests[0].Headers.Contains("X-Api-Key").Should().BeFalse();
-        handler.Requests[1].Headers.GetValues("X-Api-Key").Should().Equal("secret-key");
+        handler.Requests.Should().OnlyContain(r =>
+            r.Headers.Authorization != null &&
+            r.Headers.Authorization.Scheme == "Bearer" &&
+            r.Headers.Authorization.Parameter == "vpd_test-token");
     }
 
     [Fact]

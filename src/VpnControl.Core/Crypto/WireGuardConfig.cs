@@ -26,7 +26,10 @@ public sealed record WireGuardConfig
     /// <summary>Base64 private key of the local interface.</summary>
     public required string PrivateKey { get; init; }
 
-    /// <summary>Address assigned to the local interface, in CIDR form.</summary>
+    /// <summary>
+    /// Addresses assigned to the local interface, in CIDR form, comma separated when there
+    /// is one per address family.
+    /// </summary>
     public required string Address { get; init; }
 
     /// <summary>Resolvers to use while the tunnel is up. Empty means leave DNS alone.</summary>
@@ -124,7 +127,9 @@ public sealed record WireGuardConfig
         return new WireGuardConfig
         {
             PrivateKey = keys.PrivateKeyBase64,
-            Address = peer.AssignedAddress,
+            Address = string.IsNullOrWhiteSpace(peer.AssignedAddressV6)
+                ? peer.AssignedAddress
+                : $"{peer.AssignedAddress}, {peer.AssignedAddressV6}",
             DnsServers = peer.DnsServers,
             Mtu = mtu,
             PeerPublicKey = peer.ServerPublicKey,
