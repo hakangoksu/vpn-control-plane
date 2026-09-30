@@ -16,9 +16,11 @@ namespace VpnControl.Core.Latency;
 /// allowance, the probe's SYN was dropped, and the figure grew by TCP's one second
 /// retransmission delay. Measuring the path with ICMP keeps the SSH limit strict.
 /// <para>
-/// <see cref="Ping"/> uses an unprivileged ICMP socket where the operating system allows
-/// one, which Linux does for every group by default on current distributions, and
-/// otherwise falls back to the system's ping utility. No elevated rights are needed.
+/// On Linux, <see cref="Ping"/> opens a raw socket when the process may, and otherwise runs
+/// the system's <c>ping</c> utility, which on current distributions sends through an
+/// unprivileged ICMP socket. No elevated rights are needed, but the utility has to be
+/// installed; where it is missing, the probe reports that as a failed measurement rather
+/// than throwing, and the TCP probe is the alternative.
 /// </para>
 /// <para>
 /// Like the TCP probe, it resolves the name first and keeps that out of the figure, and
@@ -88,6 +90,11 @@ public sealed class IcmpLatencyProbe : ILatencyProbe
             catch (PingException ex)
             {
                 lastError = ex.InnerException?.Message ?? ex.Message;
+            }
+            catch (PlatformNotSupportedException ex)
+            {
+                // No raw socket and no ping utility. Every address would fail the same way.
+                return LatencyMeasurement.Failure(server, ex.Message);
             }
         }
 

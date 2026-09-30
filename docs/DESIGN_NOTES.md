@@ -129,8 +129,11 @@ SSH, and SSH sits behind a per-source connection limit. A few refreshes spent th
 SYN was dropped, and the figure grew by TCP's one second retransmission delay. I first tried
 rejecting TCP on the WireGuard port with a reset, which would have given a round trip without a
 service behind it, but the hosting provider drops outgoing resets. So the default is now
-`IcmpLatencyProbe`. On Linux `Ping` uses an unprivileged ICMP socket, so the privilege concern
-above turned out not to apply on the platform I run, and the SSH limit stays strict. The TCP
+`IcmpLatencyProbe`. On Linux, `Ping` without root runs the system's `ping` utility, which itself
+uses an unprivileged ICMP socket, so the privilege concern above does not apply on the platform
+I run, and the SSH limit stays strict. Where no `ping` is installed, as in a minimal container,
+the probe reports a failed measurement instead of throwing; a clean-container test run found
+that it used to throw. The TCP
 probe is still there for networks that filter ICMP.
 
 ## The catalog client and its two implementations
@@ -163,7 +166,7 @@ array during a compaction, so I want to be clear about what it buys: it narrows 
 does not close it. I still think it is correct, because the alternative is a buffer that lives
 until the collector happens to reuse the page.
 
-The X25519 primitive comes from BouncyCastle. The net8.0 base class library has no X25519, and
+The X25519 primitive comes from BouncyCastle. The .NET base class library has no X25519, and
 hand-rolling curve arithmetic for a lab project would have been the wrong kind of
 ambitious.
 

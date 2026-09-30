@@ -6,8 +6,8 @@
     warning policy without anyone copying a csproj by hand.
   -->
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <LangVersion>12.0</LangVersion>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>14.0</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <InvariantGlobalization>true</InvariantGlobalization>
@@ -27,7 +27,14 @@
       The rule is off rather than suppressed one call at a time so the reason is
       recorded in one place.
     -->
-    <NoWarn>$(NoWarn);CA1848</NoWarn>
+
+    <!--
+      CA1873, new in the .NET 10 analyzers, is the same concern from the other side: an
+      argument evaluated even when its log level is off. Nearly every call it flags passes a
+      property or a field, which costs nothing; the one call that built a string is guarded
+      with IsEnabled instead. Off for the same reason as CA1848.
+    -->
+    <NoWarn>$(NoWarn);CA1848;CA1873</NoWarn>
   </PropertyGroup>
 
 </Project>

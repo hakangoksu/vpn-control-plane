@@ -270,11 +270,16 @@ public sealed class WgQuickTunnel : IVpnTunnel
 
         ProcessResult result = await ProcessRunner.RunAsync(fileName, args, timeout.Token).ConfigureAwait(false);
 
-        _logger.LogDebug(
-            "{Command} {Arguments} exited with {ExitCode}.",
-            fileName,
-            string.Join(' ', args),
-            result.ExitCode);
+        // Guarded because joining the arguments allocates on every command, and debug logging
+        // is off in normal use.
+        if (_logger.IsEnabled(LogLevel.Debug))
+        {
+            _logger.LogDebug(
+                "{Command} {Arguments} exited with {ExitCode}.",
+                fileName,
+                string.Join(' ', args),
+                result.ExitCode);
+        }
 
         return result;
     }
