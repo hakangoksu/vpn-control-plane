@@ -72,7 +72,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     public LogViewModel Log { get; }
 
     /// <summary>Window title.</summary>
-    public string Title { get; } = "VPN control plane lab client";
+    public string Title { get; } = "VPN Control Plane";
 
     /// <summary>The last command failure, or <c>null</c> when the last one succeeded.</summary>
     [ObservableProperty]
@@ -88,13 +88,22 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     /// </remarks>
     public string PrimaryActionText => Connection.State switch
     {
-        ConnectionState.Connecting => "Connecting",
-        ConnectionState.Switching => "Switching",
-        ConnectionState.Disconnecting => "Disconnecting",
-        ConnectionState.Connected when IsSelectionTheCurrentServer => "Connected",
-        ConnectionState.Connected => "Switch to selected",
+        ConnectionState.Connecting => "Connecting…",
+        ConnectionState.Switching => "Switching…",
+        ConnectionState.Disconnecting => "Disconnecting…",
+        ConnectionState.Connected when IsSelectionTheCurrentServer || ServerList.SelectedServer is null => "Disconnect",
+        ConnectionState.Connected => $"Switch to {ServerList.SelectedServer!.City}",
+        _ when ServerList.SelectedServer is ServerRowViewModel row => $"Connect to {row.City}",
         _ => "Connect",
     };
+
+    /// <summary>
+    /// Whether the primary button currently ends the session, so the view can style it as the
+    /// quieter, secondary kind of action rather than the call to action.
+    /// </summary>
+    public bool PrimaryDisconnects =>
+        Connection.State == ConnectionState.Connected &&
+        (IsSelectionTheCurrentServer || ServerList.SelectedServer is null);
 
     /// <summary>Whether the selected row is the gateway the session already uses.</summary>
     public bool IsSelectionTheCurrentServer =>
@@ -130,6 +139,20 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
                 : _manager.ConnectAsync(row.Server, cancellationToken),
             $"connect to {row.Name}").ConfigureAwait(false);
     }
+
+    /// <summary>
+    /// The one main button: connect to the selection, switch to it, or disconnect.
+    /// </summary>
+    /// <param name="cancellationToken">Abandons the attempt.</param>
+    /// <returns>A task that completes once the operation has finished.</returns>
+    /// <remarks>
+    /// One button whose meaning follows the state, with the label saying exactly what a press
+    /// does ("Connect to Riga", "Switch to Paris", "Disconnect"). Two buttons side by side,
+    /// one of them always disabled, made the user work out which one applied.
+    /// </remarks>
+    [RelayCommand(CanExecute = nameof(CanRunPrimary))]
+    private Task PrimaryAsync(CancellationToken cancellationToken) =>
+        PrimaryDisconnects ? DisconnectAsync(cancellationToken) : ConnectAsync(cancellationToken);
 
     /// <summary>Refreshes, then connects to whichever gateway ranks first.</summary>
     /// <param name="cancellationToken">Abandons the attempt.</param>
@@ -207,6 +230,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
     private bool CanConnectToFastest() => !Connection.IsBusy;
 
+    private bool CanRunPrimary() => PrimaryDisconnects ? CanDisconnect() : CanConnect();
+
     private bool CanDisconnect() => Connection.State is not (ConnectionState.Disconnected or ConnectionState.Disconnecting);
 
     private bool CanToggleKillSwitch() => !Connection.IsBusy;
@@ -266,6 +291,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     /// <summary>Re-evaluates every command's availability and the primary button's label.</summary>
     private void NotifyCommandStates()
     {
+        PrimaryCommand.NotifyCanExecuteChanged();
         ConnectCommand.NotifyCanExecuteChanged();
         ConnectToFastestCommand.NotifyCanExecuteChanged();
         DisconnectCommand.NotifyCanExecuteChanged();
@@ -273,5 +299,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
         OnPropertyChanged(nameof(IsSelectionTheCurrentServer));
         OnPropertyChanged(nameof(PrimaryActionText));
+        OnPropertyChanged(nameof(PrimaryDisconnects));
     }
 }

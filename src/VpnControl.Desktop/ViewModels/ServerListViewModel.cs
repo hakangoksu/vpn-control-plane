@@ -166,7 +166,7 @@ public sealed partial class ServerListViewModel : ObservableObject
 
         Status = string.Create(
             CultureInfo.InvariantCulture,
-            $"{catalog.Count} gateways, {selection.Ranked.Count} eligible, {selection.Excluded.Count} excluded.");
+            $"{catalog.Count} locations, {selection.Ranked.Count} available");
 
         SelectedServer ??= Servers.FirstOrDefault(row => row.IsFastest) ?? Servers.FirstOrDefault();
     }

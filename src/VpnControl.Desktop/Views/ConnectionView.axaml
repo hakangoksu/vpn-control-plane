@@ -4,55 +4,50 @@
              x:Class="VpnControl.Desktop.Views.ConnectionView"
              x:DataType="vm:ConnectionViewModel">
 
-  <StackPanel Spacing="14">
+  <StackPanel Spacing="20">
 
-    <!-- Status line. The dot's colour comes from the state through a converter, so the
-         in-between states do not borrow the connected colour. -->
-    <StackPanel Orientation="Horizontal" Spacing="8">
-      <Ellipse Width="12" Height="12"
-               Fill="{Binding State, Converter={StaticResource StateBrush}}"
-               VerticalAlignment="Center" />
-      <TextBlock Text="{Binding StateText}" FontSize="19" FontWeight="SemiBold" VerticalAlignment="Center" />
+    <!-- The headline: protected or not, in the words the user thinks in. The dot's colour
+         comes from the state, so the in-between states never borrow the connected green. -->
+    <StackPanel Spacing="6">
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <Ellipse Width="12" Height="12" VerticalAlignment="Center"
+                 Fill="{Binding State, Converter={StaticResource StateBrush}}" />
+        <TextBlock Classes="headline" Text="{Binding Headline}" TextWrapping="Wrap" />
+      </StackPanel>
+      <TextBlock Classes="secondary" Text="{Binding Subtitle}" />
     </StackPanel>
 
-    <TextBlock Text="{Binding Detail}" Foreground="#9CA3AF" FontSize="12" TextWrapping="Wrap" />
-
-    <Border Background="#141821" CornerRadius="4" Padding="12">
-      <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" >
-        <Grid.Styles>
-          <Style Selector="TextBlock.label">
-            <Setter Property="Foreground" Value="#6B7280" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Margin" Value="0,3,16,3" />
-          </Style>
-          <Style Selector="TextBlock.value">
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Margin" Value="0,3" />
-            <Setter Property="FontFamily" Value="monospace" />
-          </Style>
-        </Grid.Styles>
-
-        <TextBlock Classes="label" Text="Gateway" />
-        <TextBlock Grid.Column="1" Classes="value" Text="{Binding ServerName}" />
-
-        <TextBlock Grid.Row="1" Classes="label" Text="Endpoint" />
-        <TextBlock Grid.Row="1" Grid.Column="1" Classes="value" Text="{Binding Endpoint}" />
-
-        <TextBlock Grid.Row="2" Classes="label" Text="Connected for" />
-        <TextBlock Grid.Row="2" Grid.Column="1" Classes="value" Text="{Binding ElapsedText}" />
-
-        <TextBlock Grid.Row="3" Classes="label" Text="Received" />
-        <TextBlock Grid.Row="3" Grid.Column="1" Classes="value" Text="{Binding BytesReceivedText}" />
-
-        <TextBlock Grid.Row="4" Classes="label" Text="Sent" />
-        <TextBlock Grid.Row="4" Grid.Column="1" Classes="value" Text="{Binding BytesSentText}" />
-
-        <TextBlock Grid.Row="5" Classes="label" Text="Last handshake" />
-        <TextBlock Grid.Row="5" Grid.Column="1" Classes="value" Text="{Binding HandshakeText}" />
+    <!-- Session figures, only while there is a session. Four numbers in a grid, labels
+         above values, all aligned to the same edges. -->
+    <Border IsVisible="{Binding HasSession}"
+            Background="{StaticResource RaisedBrush}"
+            BorderBrush="{StaticResource BorderBrush}"
+            BorderThickness="1"
+            CornerRadius="8"
+            Padding="16,14">
+      <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="14">
+        <StackPanel Spacing="3">
+          <TextBlock Classes="label" Text="DURATION" />
+          <TextBlock Classes="metric" Text="{Binding ElapsedText}" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Spacing="3">
+          <TextBlock Classes="label" Text="LAST HANDSHAKE" />
+          <TextBlock Classes="metric" Text="{Binding HandshakeText}" />
+        </StackPanel>
+        <StackPanel Grid.Row="1" Spacing="3">
+          <TextBlock Classes="label" Text="DOWNLOADED" />
+          <TextBlock Classes="metric" Text="{Binding BytesReceivedText}" />
+        </StackPanel>
+        <StackPanel Grid.Row="1" Grid.Column="1" Spacing="3">
+          <TextBlock Classes="label" Text="UPLOADED" />
+          <TextBlock Classes="metric" Text="{Binding BytesSentText}" />
+        </StackPanel>
+        <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Spacing="3">
+          <TextBlock Classes="label" Text="PROTECTED TRAFFIC" />
+          <TextBlock Classes="body" Text="{Binding Ipv6Text}" />
+        </StackPanel>
       </Grid>
     </Border>
-
-    <TextBlock Text="{Binding TunnelDescription}" Foreground="#6B7280" FontSize="11" TextWrapping="Wrap" />
 
   </StackPanel>
 

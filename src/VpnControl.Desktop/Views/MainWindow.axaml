@@ -5,106 +5,93 @@
         x:Class="VpnControl.Desktop.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="{Binding Title}"
-        Width="1040" Height="720"
-        MinWidth="820" MinHeight="560"
-        Background="#0B0E14">
+        Width="1000" Height="680"
+        MinWidth="860" MinHeight="580"
+        Background="{StaticResource WindowBrush}">
 
-  <Window.Styles>
-    <!--
-      The primary button is styled by state rather than by a fixed colour. The selector
-      reads the session state straight off the bound view model, so the button turns green
-      when the tunnel is up and amber while something is in flight, with no code behind
-      and no brush property on the view model.
-    -->
-    <Style Selector="Button.primary">
-      <Setter Property="Foreground" Value="White" />
-      <Setter Property="Padding" Value="18,9" />
-      <Setter Property="FontWeight" Value="SemiBold" />
-      <Setter Property="MinWidth" Value="170" />
-      <Setter Property="HorizontalContentAlignment" Value="Center" />
-    </Style>
-    <Style Selector="Button.primary:disabled /template/ ContentPresenter">
-      <Setter Property="Background" Value="#1F2937" />
-      <Setter Property="Foreground" Value="#6B7280" />
-    </Style>
-    <Style Selector="Button.danger">
-      <Setter Property="Padding" Value="18,9" />
-      <Setter Property="MinWidth" Value="130" />
-      <Setter Property="HorizontalContentAlignment" Value="Center" />
-    </Style>
-  </Window.Styles>
+  <!--
+    Two panes. The left one answers the question the user opened the window for (am I
+    protected, and where does my traffic leave) and holds the one action that changes it.
+    The right one is the choice of location. Diagnostics are there for whoever needs them,
+    folded away by default.
+  -->
+  <Grid ColumnDefinitions="360,*">
 
-  <Grid RowDefinitions="Auto,*,Auto,220" Margin="18">
+    <Border Grid.Column="0"
+            Background="{StaticResource SurfaceBrush}"
+            BorderBrush="{StaticResource BorderBrush}"
+            BorderThickness="0,0,1,0"
+            Padding="28,24">
+      <DockPanel LastChildFill="True">
 
-    <!-- Simulation banner. First thing on the window, because a client that leaves the
-         user unsure whether their traffic is protected is worse than one that refuses to
-         connect. -->
-    <Border Grid.Row="0"
-            Background="#3A2A0B"
-            BorderBrush="#7A5A12"
-            BorderThickness="1"
-            CornerRadius="4"
-            Padding="12,8"
-            Margin="0,0,0,14"
-            IsVisible="{Binding Connection.IsSimulated}">
-      <TextBlock Text="Simulated tunnel. Nothing on this machine is being routed anywhere, and the gateways below do not exist."
-                 Foreground="#F5C451"
-                 FontSize="12"
-                 TextWrapping="Wrap" />
-    </Border>
+        <TextBlock DockPanel.Dock="Top" Classes="label" Text="VPN CONTROL PLANE" Margin="0,0,0,20" />
 
-    <Grid Grid.Row="1" ColumnDefinitions="*,24,380">
-
-      <views:ServerListView DataContext="{Binding ServerList}" />
-
-      <StackPanel Grid.Column="2" Spacing="16">
-
-        <views:ConnectionView DataContext="{Binding Connection}" />
-
-        <StackPanel Spacing="8">
-          <Button Classes="primary"
-                  Content="{Binding PrimaryActionText}"
-                  Command="{Binding ConnectCommand}"
-                  Background="{Binding Connection.State, Converter={StaticResource StateBrush}}" />
-
-          <Grid ColumnDefinitions="*,8,*">
-            <Button Content="Fastest" Command="{Binding ConnectToFastestCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
-            <Button Grid.Column="2" Classes="danger" Content="Disconnect" Command="{Binding DisconnectCommand}" HorizontalAlignment="Stretch" />
-          </Grid>
-
-          <!-- A ToggleButton driven by a command rather than a two-way bound property:
-               changing the kill switch on a live session rebuilds the tunnel, which is
-               asynchronous work a property setter cannot perform honestly. -->
-          <ToggleButton IsChecked="{Binding Connection.KillSwitchEnabled, Mode=OneWay}"
-                        Command="{Binding ToggleKillSwitchCommand}"
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Left"
-                        Padding="12,8">
-            <StackPanel Spacing="1">
-              <TextBlock Text="Kill switch" FontSize="12" FontWeight="SemiBold" />
-              <TextBlock Text="Route everything through the tunnel, with no path around it."
-                         FontSize="10"
-                         Foreground="#9CA3AF"
-                         TextWrapping="Wrap" />
+        <!-- Kept at the bottom of the pane so the status and the action read first. -->
+        <StackPanel DockPanel.Dock="Bottom" Spacing="14">
+          <Border Height="1" Background="{StaticResource BorderBrush}" />
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Spacing="2" VerticalAlignment="Center">
+              <TextBlock Classes="body" Text="Kill switch" FontWeight="Medium" />
+              <TextBlock Classes="caption"
+                         Text="Routes all traffic into the tunnel while connected." />
             </StackPanel>
-          </ToggleButton>
+            <!-- Driven by a command rather than a two-way binding: changing it on a live
+                 session rebuilds the tunnel, which a property setter cannot do honestly. -->
+            <ToggleSwitch Grid.Column="1"
+                          OnContent="" OffContent=""
+                          IsChecked="{Binding Connection.KillSwitchEnabled, Mode=OneWay}"
+                          Command="{Binding ToggleKillSwitchCommand}"
+                          VerticalAlignment="Center"
+                          AutomationProperties.Name="Kill switch" />
+          </Grid>
+          <TextBlock Classes="caption" Text="{Binding Connection.TunnelDescription}" />
         </StackPanel>
 
-        <Border Background="#2A1416"
-                BorderBrush="#7A2A2E"
-                BorderThickness="1"
-                CornerRadius="4"
-                Padding="10,7"
-                IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}">
-          <TextBlock Text="{Binding Error}" Foreground="#F0A0A0" FontSize="11" TextWrapping="Wrap" />
-        </Border>
+        <StackPanel Spacing="20">
 
-      </StackPanel>
+          <!-- A client that leaves the user unsure whether traffic is protected is worse
+               than one that refuses to connect, so simulation is stated up front. -->
+          <Border Background="#2A2210" BorderBrush="#5C4715" BorderThickness="1" CornerRadius="6" Padding="12,10"
+                  IsVisible="{Binding Connection.IsSimulated}">
+            <TextBlock Classes="secondary" Foreground="{StaticResource WarningBrush}"
+                       Text="Demo mode. The tunnel is simulated and the locations are fictional; no traffic is protected." />
+          </Border>
+
+          <views:ConnectionView DataContext="{Binding Connection}" />
+
+          <StackPanel Spacing="6">
+            <Button Classes="cta"
+                    Classes.quiet="{Binding PrimaryDisconnects}"
+                    Content="{Binding PrimaryActionText}"
+                    Command="{Binding PrimaryCommand}" />
+            <Button Classes="link"
+                    HorizontalAlignment="Center"
+                    Content="Connect to the fastest location"
+                    Command="{Binding ConnectToFastestCommand}" />
+          </StackPanel>
+
+          <Border Background="#2A1517" BorderBrush="#6E2A2E" BorderThickness="1" CornerRadius="6" Padding="12,10"
+                  IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}">
+            <TextBlock Classes="secondary" Foreground="#F4A6A2" Text="{Binding Error}" />
+          </Border>
+
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <Grid Grid.Column="1" RowDefinitions="*,Auto" Margin="28,24,28,16">
+      <views:ServerListView DataContext="{Binding ServerList}" />
+
+      <Expander Grid.Row="1"
+                Margin="0,16,0,0"
+                HorizontalAlignment="Stretch"
+                IsExpanded="False">
+        <Expander.Header>
+          <TextBlock Classes="secondary" Text="Diagnostics" />
+        </Expander.Header>
+        <views:LogView DataContext="{Binding Log}" Height="200" />
+      </Expander>
     </Grid>
-
-    <Separator Grid.Row="2" Margin="0,16,0,10" Background="#1F2431" />
-
-    <views:LogView Grid.Row="3" DataContext="{Binding Log}" />
 
   </Grid>
 

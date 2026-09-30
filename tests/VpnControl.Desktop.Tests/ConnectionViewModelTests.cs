@@ -17,6 +17,8 @@ public sealed class ConnectionViewModelTests
         harness.Connection.IsConnected.Should().BeFalse();
         harness.Connection.IsBusy.Should().BeFalse();
         harness.Connection.StateText.Should().Be("Disconnected");
+        harness.Connection.Headline.Should().Be("Not protected");
+        harness.Connection.HasSession.Should().BeFalse();
         harness.Connection.ElapsedText.Should().Be("-");
         harness.Connection.HandshakeText.Should().Be("-");
     }
@@ -32,6 +34,8 @@ public sealed class ConnectionViewModelTests
         harness.Connection.State.Should().Be(ConnectionState.Connected);
         harness.Connection.IsConnected.Should().BeTrue();
         harness.Connection.StateText.Should().Be("Connected");
+        harness.Connection.HasSession.Should().BeTrue();
+        harness.Connection.Subtitle.Should().StartWith("Traffic leaves from ");
         harness.Connection.ServerName.Should().Be(TestHarness.Servers[0].Name);
         harness.Connection.Endpoint.Should().Be(TestHarness.Servers[0].Endpoint);
     }

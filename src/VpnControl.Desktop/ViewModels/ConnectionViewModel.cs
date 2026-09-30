@@ -2,6 +2,7 @@ using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.Extensions.Logging;
 using VpnControl.Core.Connection;
+using VpnControl.Core.Servers;
 using VpnControl.Core.Tunneling;
 using VpnControl.Desktop.Threading;
 
@@ -136,6 +137,47 @@ public sealed partial class ConnectionViewModel : ObservableObject, IAsyncDispos
         _ => State.ToString(),
     };
 
+    /// <summary>
+    /// The headline of the window: whether the user's traffic is protected.
+    /// </summary>
+    /// <remarks>
+    /// Phrased as what it means for the user rather than as the state machine's name for it.
+    /// "Not protected" is deliberately blunt: the one thing a VPN client must never leave in
+    /// doubt is whether traffic is going through the tunnel.
+    /// </remarks>
+    public string Headline => State switch
+    {
+        // In demo mode nothing is protected, so the word is not used; the banner above the
+        // headline says why.
+        ConnectionState.Connected => IsSimulated ? "Connected" : "Protected",
+        ConnectionState.Connecting => "Connecting",
+        ConnectionState.Switching => "Switching location",
+        ConnectionState.Disconnecting => "Disconnecting",
+        ConnectionState.Faulted => "Connection failed",
+        _ => "Not protected",
+    };
+
+    /// <summary>The line under the headline: where traffic leaves, or what is happening.</summary>
+    public string Subtitle => State switch
+    {
+        ConnectionState.Connected => $"Traffic leaves from {Location}",
+        ConnectionState.Connecting or ConnectionState.Switching => $"Setting up the tunnel to {Location}",
+        ConnectionState.Disconnecting => "Closing the tunnel",
+        ConnectionState.Faulted => Detail,
+        _ => "Traffic uses your own connection",
+    };
+
+    /// <summary>City and country of the gateway in use, or a dash.</summary>
+    public string Location => _manager.CurrentServer is VpnServer server ? server.Location : "-";
+
+    /// <summary>What happens to IPv6 at the gateway in use.</summary>
+    public string Ipv6Text => _manager.CurrentServer is VpnServer server && server.Ipv6Egress
+        ? "IPv4 and IPv6"
+        : "IPv4 only, IPv6 blocked";
+
+    /// <summary>Whether the session details are worth showing.</summary>
+    public bool HasSession => State is ConnectionState.Connected or ConnectionState.Switching;
+
     /// <summary>Elapsed session time as <c>hh:mm:ss</c>.</summary>
     public string ElapsedText => Elapsed == TimeSpan.Zero
         ? "-"
@@ -263,6 +305,8 @@ public sealed partial class ConnectionViewModel : ObservableObject, IAsyncDispos
             ServerName = _manager.CurrentServer?.Name ?? "-";
             Endpoint = _manager.CurrentServer?.Endpoint ?? "-";
             KillSwitchEnabled = _manager.KillSwitchEnabled;
+            OnPropertyChanged(nameof(Location));
+            OnPropertyChanged(nameof(Ipv6Text));
 
             if (e.Current is ConnectionState.Disconnected or ConnectionState.Faulted)
             {
@@ -311,9 +355,15 @@ public sealed partial class ConnectionViewModel : ObservableObject, IAsyncDispos
         {
             case nameof(State):
                 OnPropertyChanged(nameof(StateText));
+                OnPropertyChanged(nameof(Headline));
+                OnPropertyChanged(nameof(Subtitle));
+                OnPropertyChanged(nameof(HasSession));
                 OnPropertyChanged(nameof(IsConnected));
                 OnPropertyChanged(nameof(IsBusy));
                 OnPropertyChanged(nameof(IsFaulted));
+                break;
+            case nameof(Detail):
+                OnPropertyChanged(nameof(Subtitle));
                 break;
             case nameof(Elapsed):
                 OnPropertyChanged(nameof(ElapsedText));

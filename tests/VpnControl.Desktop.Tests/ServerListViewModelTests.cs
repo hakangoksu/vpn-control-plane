@@ -84,7 +84,7 @@ public sealed class ServerListViewModelTests
         await harness.LoadAsync();
 
         // Three gateways are usable and the one the operator disabled is not.
-        harness.ServerList.Status.Should().Be("4 gateways, 3 eligible, 1 excluded.");
+        harness.ServerList.Status.Should().Be("4 locations, 3 available");
     }
 
     [Fact]
@@ -145,5 +145,35 @@ public sealed class ServerListViewModelTests
         await harness.LoadAsync();
 
         harness.ServerList.IsRefreshing.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(null, 0)]
+    [InlineData(12.0, 3)]
+    [InlineData(79.0, 3)]
+    [InlineData(80.0, 2)]
+    [InlineData(179.0, 2)]
+    [InlineData(180.0, 1)]
+    [InlineData(900.0, 1)]
+    public void The_signal_bars_follow_the_measured_latency(double? milliseconds, int expected)
+    {
+        var row = new ServerRowViewModel(VpnControl.Core.Servers.DemoCatalog.CreateServers()[0])
+        {
+            LatencyMilliseconds = milliseconds,
+        };
+
+        row.SignalLevel.Should().Be(expected);
+    }
+
+    [Fact]
+    public void A_new_latency_announces_the_signal_level()
+    {
+        var row = new ServerRowViewModel(VpnControl.Core.Servers.DemoCatalog.CreateServers()[0]);
+        var changed = new List<string?>();
+        row.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        row.LatencyMilliseconds = 42;
+
+        changed.Should().Contain(nameof(ServerRowViewModel.SignalLevel));
     }
 }

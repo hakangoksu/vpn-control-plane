@@ -4,36 +4,34 @@
              x:Class="VpnControl.Desktop.Views.LogView"
              x:DataType="vm:LogViewModel">
 
-  <Grid RowDefinitions="Auto,*">
+  <Grid RowDefinitions="*,Auto">
 
-    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,6">
-      <TextBlock Text="Log" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" />
-      <Button Grid.Column="1" Content="Clear" Command="{Binding ClearCommand}" FontSize="11" Padding="8,3" />
-    </Grid>
-
-    <Border Grid.Row="1" Background="#0F1218" BorderBrush="#2A2F3A" BorderThickness="1" CornerRadius="4">
+    <Border Background="{StaticResource WindowBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6">
       <!-- An ItemsControl inside a scroller rather than a ListBox: these rows are read,
            never selected, and a ListBox would add selection and focus behaviour that has
            no meaning here. -->
-      <ScrollViewer Padding="8">
+      <ScrollViewer Padding="10,8">
         <ItemsControl ItemsSource="{Binding Entries}">
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:LogEntry">
-              <Grid ColumnDefinitions="60,44,140,*" Margin="0,1">
-                <TextBlock Text="{Binding TimeText}" FontFamily="monospace" FontSize="11" Foreground="#4B5563" />
+              <Grid ColumnDefinitions="64,44,*" Margin="0,1">
+                <TextBlock Text="{Binding TimeText}" FontFamily="monospace" FontSize="11" Foreground="{StaticResource SubtleBrush}" />
                 <TextBlock Grid.Column="1"
                            Text="{Binding LevelText}"
                            FontFamily="monospace"
                            FontSize="11"
                            Foreground="{Binding Level, Converter={StaticResource LogLevelBrush}}" />
-                <TextBlock Grid.Column="2" Text="{Binding Category}" FontFamily="monospace" FontSize="11" Foreground="#6B7280" TextTrimming="CharacterEllipsis" />
-                <TextBlock Grid.Column="3" Text="{Binding Message}" FontFamily="monospace" FontSize="11" TextWrapping="Wrap" />
+                <TextBlock Grid.Column="2" Text="{Binding Message}" FontFamily="monospace" FontSize="11"
+                           Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap"
+                           ToolTip.Tip="{Binding Category}" />
               </Grid>
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
       </ScrollViewer>
     </Border>
+
+    <Button Grid.Row="1" Classes="link" HorizontalAlignment="Right" Content="Clear" Command="{Binding ClearCommand}" Margin="0,4,0,0" />
 
   </Grid>
 

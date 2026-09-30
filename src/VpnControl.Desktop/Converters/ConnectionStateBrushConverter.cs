@@ -24,10 +24,10 @@ public sealed class ConnectionStateBrushConverter : IValueConverter
     /// <summary>A single shared instance, so the resource does not allocate per binding.</summary>
     public static ConnectionStateBrushConverter Instance { get; } = new();
 
-    private static readonly SolidColorBrush Idle = new(Color.FromRgb(0x6B, 0x72, 0x80));
-    private static readonly SolidColorBrush Working = new(Color.FromRgb(0xD9, 0x7C, 0x0B));
-    private static readonly SolidColorBrush Live = new(Color.FromRgb(0x2E, 0x9E, 0x4F));
-    private static readonly SolidColorBrush Bad = new(Color.FromRgb(0xC0, 0x39, 0x2B));
+    private static readonly SolidColorBrush Idle = new(Color.FromRgb(0x8B, 0x95, 0xA3));
+    private static readonly SolidColorBrush Working = new(Color.FromRgb(0xD2, 0x99, 0x22));
+    private static readonly SolidColorBrush Live = new(Color.FromRgb(0x3F, 0xB9, 0x50));
+    private static readonly SolidColorBrush Bad = new(Color.FromRgb(0xF8, 0x51, 0x49));
 
     /// <inheritdoc />
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => value switch

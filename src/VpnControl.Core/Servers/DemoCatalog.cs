@@ -28,7 +28,7 @@ public static class DemoCatalog
         Create("lt-vln-01", "Vilnius 1", "Vilnius", "LT", "lab-vilnius-1.invalid", 51820, 18),
         Create("lt-vln-02", "Vilnius 2", "Vilnius", "LT", "lab-vilnius-2.invalid", 51820, 64),
         Create("lt-kun-01", "Kaunas 1", "Kaunas", "LT", "lab-kaunas-1.invalid", 51820, 31),
-        Create("pl-waw-01", "Warsaw 1", "Warsaw", "PL", "lab-warsaw-1.invalid", 51820, 47),
+        Create("pl-waw-01", "Warsaw 1", "Warsaw", "PL", "lab-warsaw-1.invalid", 51820, 47, ipv6Egress: false),
         Create("de-fra-01", "Frankfurt 1", "Frankfurt", "DE", "lab-frankfurt-1.invalid", 51820, 72),
         Create("de-fra-02", "Frankfurt 2", "Frankfurt", "DE", "lab-frankfurt-2.invalid", 51821, 96),
         Create("se-sto-01", "Stockholm 1", "Stockholm", "SE", "lab-stockholm-1.invalid", 51820, 12),
@@ -44,7 +44,8 @@ public static class DemoCatalog
         string host,
         int port,
         int loadPercent,
-        bool isEnabled = true)
+        bool isEnabled = true,
+        bool ipv6Egress = true)
     {
         using WireGuardKeyPair keys = WireGuardKeyPair.Generate();
 
@@ -59,6 +60,7 @@ public static class DemoCatalog
             PublicKey = keys.PublicKeyBase64,
             LoadPercent = loadPercent,
             IsEnabled = isEnabled,
+            Ipv6Egress = ipv6Egress,
         };
     }
 }

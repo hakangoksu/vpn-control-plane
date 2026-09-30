@@ -65,6 +65,44 @@ public sealed partial class ServerRowViewModel(VpnServer server) : ObservableObj
     /// <summary>Whether this gateway is a candidate the user can connect to.</summary>
     public bool IsEligible => ExclusionReason is null;
 
+    /// <summary>City the gateway is in, the row's main label.</summary>
+    public string City => Server.City;
+
+    /// <summary>ISO country code, shown as a compact badge in place of a flag.</summary>
+    /// <remarks>
+    /// A code rather than a flag glyph: flag emoji do not render on every platform and font,
+    /// and a two-letter code is unambiguous where a small flag often is not.
+    /// </remarks>
+    public string CountryCode => Server.Country;
+
+    /// <summary>Whether IPv6 leaves through this gateway.</summary>
+    public bool HasIpv6 => Server.Ipv6Egress;
+
+    /// <summary>Whether the gateway is busy enough to be worth mentioning.</summary>
+    /// <remarks>
+    /// The load figure is only shown when it says something. A column of zeros is noise, and
+    /// a tag that appears at 70 percent occupancy tells the user why a closer gateway may not
+    /// be the first choice.
+    /// </remarks>
+    public bool IsBusy => Server.LoadPercent >= 70;
+
+    /// <summary>
+    /// Connection quality from zero to three bars, derived from the measured latency.
+    /// </summary>
+    /// <remarks>
+    /// Bars rather than a colour for the number. Colouring 150 ms red told the user something
+    /// was wrong when nothing was; red is kept for failures. The thresholds are presentation
+    /// choices for a VPN's use: under 80 ms feels local, under 180 ms is comfortable for
+    /// browsing and calls, above that it is noticeable. Zero bars means no answer.
+    /// </remarks>
+    public int SignalLevel => LatencyMilliseconds switch
+    {
+        null => 0,
+        < 80 => 3,
+        < 180 => 2,
+        _ => 1,
+    };
+
     /// <summary>Latency for the column, or a dash when there is no measurement.</summary>
     public string LatencyText => LatencyMilliseconds is double ms
         ? string.Create(CultureInfo.InvariantCulture, $"{ms:F0} ms")
@@ -121,6 +159,7 @@ public sealed partial class ServerRowViewModel(VpnServer server) : ObservableObj
         {
             case nameof(LatencyMilliseconds):
                 OnPropertyChanged(nameof(LatencyText));
+                OnPropertyChanged(nameof(SignalLevel));
                 OnPropertyChanged(nameof(Details));
                 break;
             case nameof(ExclusionReason):

@@ -32,7 +32,8 @@ public sealed class MainWindowViewModelTests
         harness.Select("lt-kun-01");
 
         harness.Main.ConnectCommand.CanExecute(null).Should().BeTrue();
-        harness.Main.PrimaryActionText.Should().Be("Connect");
+        harness.Main.PrimaryActionText.Should().Be("Connect to Kaunas");
+        harness.Main.PrimaryDisconnects.Should().BeFalse();
     }
 
     [Fact]
@@ -63,16 +64,24 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
-    public async Task With_the_current_gateway_selected_the_primary_button_offers_nothing_to_do()
+    public async Task With_the_current_gateway_selected_the_primary_button_disconnects()
     {
+        // One button whose label says what a press does. Connected to the selected location,
+        // the only thing left to do with it is to disconnect.
         await using TestHarness harness = TestHarness.Create();
         await harness.LoadAsync();
         harness.Select("lt-kun-01");
         await harness.Main.ConnectCommand.ExecuteAsync(null);
 
         harness.Main.IsSelectionTheCurrentServer.Should().BeTrue();
-        harness.Main.PrimaryActionText.Should().Be("Connected");
+        harness.Main.PrimaryActionText.Should().Be("Disconnect");
+        harness.Main.PrimaryDisconnects.Should().BeTrue();
         harness.Main.ConnectCommand.CanExecute(null).Should().BeFalse();
+
+        await harness.Main.PrimaryCommand.ExecuteAsync(null);
+
+        harness.Manager.IsConnected.Should().BeFalse();
+        harness.Main.PrimaryActionText.Should().Be("Connect to Kaunas");
     }
 
     [Fact]
@@ -85,10 +94,11 @@ public sealed class MainWindowViewModelTests
 
         harness.Select("de-fra-01");
 
-        harness.Main.PrimaryActionText.Should().Be("Switch to selected");
+        harness.Main.PrimaryActionText.Should().Be("Switch to Frankfurt");
+        harness.Main.PrimaryDisconnects.Should().BeFalse();
         harness.Main.ConnectCommand.CanExecute(null).Should().BeTrue();
 
-        await harness.Main.ConnectCommand.ExecuteAsync(null);
+        await harness.Main.PrimaryCommand.ExecuteAsync(null);
 
         harness.Manager.CurrentServer!.Id.Should().Be("de-fra-01");
         harness.Manager.State.Should().Be(ConnectionState.Connected);

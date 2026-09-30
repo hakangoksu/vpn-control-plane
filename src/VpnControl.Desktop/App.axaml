@@ -4,20 +4,156 @@
              x:Class="VpnControl.Desktop.App"
              RequestedThemeVariant="Dark">
 
-  <Application.Styles>
-    <FluentTheme />
-  </Application.Styles>
-
+  <!--
+    One palette, defined once. Neutrals carry the interface; the teal accent is spent on the
+    call to action and the selection; green, amber and red appear only where they mean a
+    state the user should notice.
+  -->
   <Application.Resources>
+    <SolidColorBrush x:Key="WindowBrush" Color="#0F1318" />
+    <SolidColorBrush x:Key="SurfaceBrush" Color="#151A21" />
+    <SolidColorBrush x:Key="RaisedBrush" Color="#1C232C" />
+    <SolidColorBrush x:Key="BorderBrush" Color="#27303B" />
+    <SolidColorBrush x:Key="TextBrush" Color="#E6EAF0" />
+    <SolidColorBrush x:Key="MutedBrush" Color="#8B95A3" />
+    <SolidColorBrush x:Key="SubtleBrush" Color="#5E6875" />
+    <SolidColorBrush x:Key="AccentBrush" Color="#2BB3A3" />
+    <SolidColorBrush x:Key="AccentHoverBrush" Color="#36C4B3" />
+    <SolidColorBrush x:Key="AccentPressedBrush" Color="#229789" />
+    <SolidColorBrush x:Key="OnAccentBrush" Color="#06201D" />
+    <SolidColorBrush x:Key="SuccessBrush" Color="#3FB950" />
+    <SolidColorBrush x:Key="WarningBrush" Color="#D29922" />
+    <SolidColorBrush x:Key="DangerBrush" Color="#F85149" />
+
     <!--
       The converters are shared single instances rather than one per binding. Each is
       stateless, so there is nothing to keep apart, and a list of a hundred rows would
       otherwise allocate a hundred copies of each.
     -->
     <converters:ConnectionStateBrushConverter x:Key="StateBrush" />
-    <converters:LatencyBrushConverter x:Key="LatencyBrush" />
+    <converters:SignalBarBrushConverter x:Key="SignalBar" />
     <converters:LogLevelBrushConverter x:Key="LogLevelBrush" />
     <converters:EligibilityOpacityConverter x:Key="EligibilityOpacity" />
   </Application.Resources>
+
+  <Application.Styles>
+    <FluentTheme />
+
+    <!-- Type scale: 28 headline, 18 section, 14 body, 12 secondary, 11 caption. -->
+    <Style Selector="TextBlock.headline">
+      <Setter Property="FontSize" Value="28" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+    </Style>
+    <Style Selector="TextBlock.section">
+      <Setter Property="FontSize" Value="18" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+    </Style>
+    <Style Selector="TextBlock.body">
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+    </Style>
+    <Style Selector="TextBlock.secondary">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="TextBlock.caption">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Foreground" Value="{StaticResource SubtleBrush}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="TextBlock.label">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+      <Setter Property="LetterSpacing" Value="0.4" />
+    </Style>
+    <Style Selector="TextBlock.metric">
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="FontWeight" Value="Medium" />
+      <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+      <Setter Property="FontFeatures" Value="+tnum" />
+    </Style>
+
+    <!-- Buttons: one filled call to action, a quiet outlined one, and a text-only link. -->
+    <Style Selector="Button">
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="FontSize" Value="13" />
+    </Style>
+    <Style Selector="Button.cta">
+      <Setter Property="Height" Value="48" />
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+      <Setter Property="Foreground" Value="{StaticResource OnAccentBrush}" />
+    </Style>
+    <Style Selector="Button.cta:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource AccentHoverBrush}" />
+      <Setter Property="Foreground" Value="{StaticResource OnAccentBrush}" />
+    </Style>
+    <Style Selector="Button.cta:pressed /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource AccentPressedBrush}" />
+    </Style>
+    <Style Selector="Button.cta.quiet">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Button.cta.quiet:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource RaisedBrush}" />
+      <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource MutedBrush}" />
+    </Style>
+    <Style Selector="Button.cta:disabled /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource RaisedBrush}" />
+      <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+    </Style>
+    <Style Selector="Button.link">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="0,4" />
+      <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+    </Style>
+    <Style Selector="Button.link:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{StaticResource AccentHoverBrush}" />
+    </Style>
+    <Style Selector="Button.link:disabled /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{StaticResource SubtleBrush}" />
+    </Style>
+    <Style Selector="Button.subtle">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="12,6" />
+      <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+    </Style>
+
+    <!-- A small outlined label next to a location: fastest, IPv4 only, busy. -->
+    <Style Selector="Border.tag">
+      <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Padding" Value="6,1" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.tag > TextBlock">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+    </Style>
+    <Style Selector="Border.tag.accent">
+      <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+    </Style>
+    <Style Selector="Border.tag.accent > TextBlock">
+      <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+    </Style>
+  </Application.Styles>
 
 </Application>

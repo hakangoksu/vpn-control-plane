@@ -12,74 +12,106 @@
 
   <Grid RowDefinitions="Auto,*,Auto">
 
-    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
-      <TextBlock Text="Gateways" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
+    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,14">
+      <TextBlock Classes="section" Text="Locations" VerticalAlignment="Center" />
       <Button Grid.Column="1"
+              Classes="subtle"
               Content="Refresh"
               Command="{Binding RefreshCommand}"
               IsEnabled="{Binding !IsRefreshing}" />
     </Grid>
 
-    <!-- The header row is a plain Grid with the same column widths as the item template,
-         so the two line up without pulling in a data grid control for four columns. -->
-    <Border Grid.Row="1" BorderBrush="#2A2F3A" BorderThickness="1" CornerRadius="4">
-      <Grid RowDefinitions="Auto,*">
+    <ListBox Grid.Row="1"
+             ItemsSource="{Binding Servers}"
+             SelectedItem="{Binding SelectedServer}"
+             Background="Transparent"
+             BorderThickness="0"
+             AutomationProperties.Name="Locations">
+      <ListBox.Styles>
+        <Style Selector="ListBoxItem">
+          <Setter Property="Padding" Value="14,10" />
+          <Setter Property="Margin" Value="0,0,0,6" />
+          <Setter Property="CornerRadius" Value="8" />
+          <Setter Property="BorderThickness" Value="1" />
+          <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+          <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+        </Style>
+        <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+          <Setter Property="Background" Value="{StaticResource RaisedBrush}" />
+          <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+        </Style>
+        <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+          <Setter Property="Background" Value="{StaticResource RaisedBrush}" />
+          <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+        </Style>
+        <Style Selector="ListBoxItem:selected:pointerover /template/ ContentPresenter">
+          <Setter Property="Background" Value="{StaticResource RaisedBrush}" />
+          <Setter Property="BorderBrush" Value="{StaticResource AccentHoverBrush}" />
+        </Style>
+      </ListBox.Styles>
 
-        <Grid Grid.Row="0" ColumnDefinitions="*,120,70,80" Margin="10,8" >
-          <TextBlock Text="Gateway" Foreground="#9CA3AF" FontSize="12" />
-          <TextBlock Grid.Column="1" Text="Location" Foreground="#9CA3AF" FontSize="12" />
-          <TextBlock Grid.Column="2" Text="Load" Foreground="#9CA3AF" FontSize="12" HorizontalAlignment="Right" />
-          <TextBlock Grid.Column="3" Text="Latency" Foreground="#9CA3AF" FontSize="12" HorizontalAlignment="Right" />
-        </Grid>
+      <ListBox.ItemTemplate>
+        <DataTemplate x:DataType="vm:ServerRowViewModel">
+          <Grid ColumnDefinitions="Auto,*,Auto"
+                ColumnSpacing="14"
+                ToolTip.Tip="{Binding Details}"
+                Opacity="{Binding IsEligible, Converter={StaticResource EligibilityOpacity}}">
 
-        <ListBox Grid.Row="1"
-                 ItemsSource="{Binding Servers}"
-                 SelectedItem="{Binding SelectedServer}"
-                 Background="Transparent"
-                 BorderThickness="0">
-          <ListBox.ItemTemplate>
-            <DataTemplate x:DataType="vm:ServerRowViewModel">
-              <Grid ColumnDefinitions="*,120,70,80"
-                    ToolTip.Tip="{Binding Details}"
-                    Opacity="{Binding IsEligible, Converter={StaticResource EligibilityOpacity}}">
+            <!-- Country code in place of a flag glyph, which not every platform renders. -->
+            <Border Width="34" Height="24" CornerRadius="4"
+                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                    VerticalAlignment="Center">
+              <TextBlock Text="{Binding CountryCode}" FontSize="11" FontWeight="SemiBold"
+                         Foreground="{StaticResource MutedBrush}"
+                         HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
 
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                  <!-- The dot marks the gateway the session is on, which the selection
-                       does not: a user can select a row without connecting to it. -->
-                  <TextBlock Text="&#x25CF;"
-                             Foreground="#2E9E4F"
-                             VerticalAlignment="Center"
-                             IsVisible="{Binding IsCurrent}" />
-                  <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
-                  <Border Background="#1F3A2A" CornerRadius="3" Padding="5,1" IsVisible="{Binding IsFastest}">
-                    <TextBlock Text="fastest" FontSize="10" Foreground="#6EE7A0" />
-                  </Border>
-                </StackPanel>
+            <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Classes="body" FontWeight="Medium" Text="{Binding City}" VerticalAlignment="Center" />
+                <Border Classes="tag accent" IsVisible="{Binding IsFastest}">
+                  <TextBlock Text="Fastest" />
+                </Border>
+                <Border Classes="tag" IsVisible="{Binding !HasIpv6}">
+                  <TextBlock Text="IPv4 only" />
+                </Border>
+                <Border Classes="tag" IsVisible="{Binding IsBusy}">
+                  <TextBlock Text="Busy" />
+                </Border>
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <!-- Marks the location in use, which the selection does not: a user can
+                     select a row without connecting to it. -->
+                <Ellipse Width="7" Height="7" Fill="{StaticResource SuccessBrush}"
+                         VerticalAlignment="Center" IsVisible="{Binding IsCurrent}" />
+                <TextBlock Classes="caption" Foreground="{StaticResource SuccessBrush}"
+                           Text="Connected" IsVisible="{Binding IsCurrent}" />
+                <TextBlock Classes="caption" Text="{Binding Name}" IsVisible="{Binding !IsCurrent}" />
+              </StackPanel>
+            </StackPanel>
 
-                <TextBlock Grid.Column="1" Text="{Binding Location}" Foreground="#9CA3AF" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="2" Text="{Binding LoadText}" Foreground="#9CA3AF" HorizontalAlignment="Right" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="3"
-                           Text="{Binding LatencyText}"
-                           Foreground="{Binding LatencyMilliseconds, Converter={StaticResource LatencyBrush}}"
-                           HorizontalAlignment="Right"
-                           VerticalAlignment="Center" />
-              </Grid>
-            </DataTemplate>
-          </ListBox.ItemTemplate>
+            <!-- Quality as three neutral bars and the figure beside it. Colour is kept for
+                 states that need action, and 150 ms is not one. -->
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+              <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Bottom" Margin="0,0,0,3">
+                <Rectangle Width="4" Height="6" RadiusX="1" RadiusY="1" VerticalAlignment="Bottom"
+                           Fill="{Binding SignalLevel, Converter={StaticResource SignalBar}, ConverterParameter=1}" />
+                <Rectangle Width="4" Height="10" RadiusX="1" RadiusY="1" VerticalAlignment="Bottom"
+                           Fill="{Binding SignalLevel, Converter={StaticResource SignalBar}, ConverterParameter=2}" />
+                <Rectangle Width="4" Height="14" RadiusX="1" RadiusY="1" VerticalAlignment="Bottom"
+                           Fill="{Binding SignalLevel, Converter={StaticResource SignalBar}, ConverterParameter=3}" />
+              </StackPanel>
+              <TextBlock Classes="secondary" Text="{Binding LatencyText}" MinWidth="52"
+                         TextAlignment="Right" FontFeatures="+tnum" VerticalAlignment="Center" />
+            </StackPanel>
+          </Grid>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
 
-          <ListBox.Styles>
-            <Style Selector="ListBoxItem">
-              <Setter Property="Padding" Value="10,6" />
-            </Style>
-          </ListBox.Styles>
-        </ListBox>
-
-      </Grid>
-    </Border>
-
-    <StackPanel Grid.Row="2" Margin="0,8,0,0" Spacing="2">
-      <TextBlock Text="{Binding Status}" Foreground="#9CA3AF" FontSize="12" TextWrapping="Wrap" />
-      <TextBlock Text="{Binding ProbeDescription}" Foreground="#6B7280" FontSize="11" TextWrapping="Wrap" />
+    <StackPanel Grid.Row="2" Margin="0,10,0,0" Spacing="2">
+      <TextBlock Classes="caption" Text="{Binding Status}" />
+      <TextBlock Classes="caption" Text="{Binding ProbeDescription}" />
     </StackPanel>
 
   </Grid>
