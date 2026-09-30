@@ -19,7 +19,8 @@
     set -euo pipefail
     out="${TMPDIR:-/tmp}/{{ control_plane_archive }}"
     if [ ! -f "$out" ]; then
-      docker build --quiet -f src/VpnControl.Api/Dockerfile -t {{ control_plane_tag }} . >/dev/null
+      # --pull so the .NET base images carry their latest security patches.
+      docker build --pull --quiet -f src/VpnControl.Api/Dockerfile -t {{ control_plane_tag }} . >/dev/null
       docker save {{ control_plane_tag }} | gzip -1 > "$out"
     fi
     echo "$out"
