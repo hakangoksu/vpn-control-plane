@@ -101,6 +101,13 @@ public sealed class VpnConnectionManager : IAsyncDisposable
     /// <summary>Whether the active backend only simulates a tunnel.</summary>
     public bool IsSimulated => _tunnel.IsSimulated;
 
+    /// <summary>Name of the latency measurement in use, for the user interface.</summary>
+    /// <remarks>
+    /// Exposed so the caption under the gateway list states how the figures were obtained,
+    /// rather than assuming one technique and being wrong when configuration picks another.
+    /// </remarks>
+    public string LatencyProbeName => _probe.Name;
+
     /// <summary>Name of the active backend.</summary>
     public string TunnelName => _tunnel.Name;
 

@@ -162,7 +162,7 @@ public sealed partial class ServerListViewModel : ObservableObject
         Fastest = selection.Best;
         ProbeDescription = _manager.IsSimulated
             ? "Latency figures are simulated, not measured."
-            : "Latency is the TCP handshake time to the gateway host.";
+            : $"Latency is measured with {_manager.LatencyProbeName} to the gateway host.";
 
         Status = string.Create(
             CultureInfo.InvariantCulture,
