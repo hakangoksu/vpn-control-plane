@@ -29,8 +29,6 @@
     <!-- Configuration is read by the host from the working directory, so it has to be
          beside the built assembly rather than only in the project folder. -->
     <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
-    <!-- Real values, git-ignored. Copied only when present so a fresh clone still builds. -->
-    <None Include="appsettings.Local.json" Condition="Exists('appsettings.Local.json')" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

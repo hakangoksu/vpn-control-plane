@@ -25,7 +25,7 @@ public sealed class CompositionTests
     [Fact]
     public async Task The_whole_view_model_graph_resolves_from_the_default_configuration()
     {
-        using IHost host = DesktopServices.CreateHost([]);
+        using IHost host = DesktopServices.CreateHost([], clientSettingsPath: null);
 
         var main = host.Services.GetRequiredService<MainWindowViewModel>();
 
@@ -39,7 +39,7 @@ public sealed class CompositionTests
     [Fact]
     public async Task The_defaults_are_the_self_contained_ones()
     {
-        using IHost host = DesktopServices.CreateHost([]);
+        using IHost host = DesktopServices.CreateHost([], clientSettingsPath: null);
 
         // Nothing to install, no backend to start, no privileges: the point of the defaults.
         host.Services.GetRequiredService<IVpnTunnel>().Should().BeOfType<SimulatedTunnel>();
@@ -52,7 +52,7 @@ public sealed class CompositionTests
     [Fact]
     public async Task The_view_models_and_the_manager_are_single_instances()
     {
-        using IHost host = DesktopServices.CreateHost([]);
+        using IHost host = DesktopServices.CreateHost([], clientSettingsPath: null);
 
         // A second copy would leave the window bound to a different session from the one
         // the commands act on, which is a bug that looks like the UI freezing.
@@ -69,7 +69,7 @@ public sealed class CompositionTests
     [Fact]
     public async Task The_application_log_is_routed_to_the_pane_the_window_shows()
     {
-        using IHost host = DesktopServices.CreateHost([]);
+        using IHost host = DesktopServices.CreateHost([], clientSettingsPath: null);
         var main = host.Services.GetRequiredService<MainWindowViewModel>();
 
         await main.ServerList.RefreshAsync(CancellationToken.None);
@@ -84,7 +84,7 @@ public sealed class CompositionTests
     [Fact]
     public async Task Overriding_a_switch_on_the_command_line_changes_what_is_registered()
     {
-        using IHost host = DesktopServices.CreateHost(["--Desktop:UseControlPlaneApi=true"]);
+        using IHost host = DesktopServices.CreateHost(["--Desktop:UseControlPlaneApi=true"], clientSettingsPath: null);
 
         host.Services.GetRequiredService<IServerCatalogClient>().Should().BeOfType<HttpServerCatalogClient>();
 
@@ -104,6 +104,26 @@ public sealed class CompositionTests
         if (host is IAsyncDisposable asyncDisposable)
         {
             await asyncDisposable.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public void A_client_settings_file_switches_the_client_to_the_control_plane()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), $"vpn-client-{Guid.NewGuid():n}");
+        Directory.CreateDirectory(directory);
+        string path = Path.Combine(directory, "client.json");
+        File.WriteAllText(path, """{ "Desktop": { "UseControlPlaneApi": true } }""");
+
+        try
+        {
+            using IHost host = DesktopServices.CreateHost([], path);
+
+            host.Services.GetRequiredService<IServerCatalogClient>().Should().BeOfType<HttpServerCatalogClient>();
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
         }
     }
 }

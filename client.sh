@@ -9,7 +9,7 @@
 set -eu
 cd "$(dirname "$0")"
 
-settings="src/VpnControl.Desktop/appsettings.Local.json"
+settings="${XDG_CONFIG_HOME:-$HOME/.config}/vpn-control-plane/client.json"
 mode=real
 [ "${1:-}" = "--demo" ] && mode=demo
 
@@ -35,7 +35,7 @@ if [ -n "${XAUTHORITY:-}" ] && [ -f "$XAUTHORITY" ]; then
 fi
 
 if [ "$mode" = real ]; then
-  set -- "$@" -v "$PWD/$settings:/app/appsettings.Local.json:ro"
+  set -- "$@" -v "$settings:/root/.config/vpn-control-plane/client.json:ro"
 fi
 
 exec docker run "$@" vpn-control-plane-desktop

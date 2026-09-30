@@ -40,6 +40,8 @@ DEPLOY = REPO / "deploy"
 DEFAULT_CONFIG = Path.home() / ".config" / "vpn-control-plane"
 KEYRING = ("service", "vpn-control-plane", "key", "ansible-vault")
 SSH_KEY = Path.home() / ".ssh" / "vpn_gateways"
+# Where the desktop client looks for its device token, outside the repository.
+CLIENT_SETTINGS = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "vpn-control-plane" / "client.json"
 
 # ── output ─────────────────────────────────────────────────────────────────────
 
@@ -490,9 +492,9 @@ def admin(state: dict, config: Path, *args: str) -> str:
 
 def enroll_desktop(config: Path, state: dict) -> None:
     step("Connecting the desktop client")
-    settings_path = REPO / "src" / "VpnControl.Desktop" / "appsettings.Local.json"
+    settings_path = CLIENT_SETTINGS
     if settings_path.exists() and "vpd_" in settings_path.read_text():
-        ok(f"the desktop client already has a device token ({settings_path.relative_to(REPO)})")
+        ok(f"the desktop client already has a device token ({settings_path})")
         return
 
     name = ask("Name for this device", socket.gethostname(), pattern=r"[A-Za-z0-9._-]{1,64}")
@@ -502,9 +504,11 @@ def enroll_desktop(config: Path, state: dict) -> None:
         "VpnConnection": {"DeviceName": name, "Mtu": client_mtu()},
         "ServerCatalog": {"BaseAddress": f"https://{state['domain']}/", "DeviceToken": token},
     }
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    settings_path.parent.chmod(0o700)
     settings_path.write_text(json.dumps(settings, indent=2) + "\n")
     settings_path.chmod(0o600)
-    ok(f"device enrolled; token written to {settings_path.relative_to(REPO)} (git ignores it)")
+    ok(f"device enrolled; token written to {settings_path} (mode 0600, outside the repository)")
 
 
 def client_mtu() -> int:
@@ -567,6 +571,9 @@ def main() -> int:
                         help="skip deployment; only check DNS and run the end-to-end check")
     args = parser.parse_args()
     config = args.config_dir.expanduser()
+
+    # Progress should appear as it happens, also when the output goes to a file or a pipe.
+    sys.stdout.reconfigure(line_buffering=True)
 
     try:
         config.mkdir(parents=True, exist_ok=True)

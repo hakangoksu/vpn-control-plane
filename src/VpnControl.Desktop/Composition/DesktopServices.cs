@@ -26,19 +26,48 @@ namespace VpnControl.Desktop.Composition;
 /// </remarks>
 public static class DesktopServices
 {
-    /// <summary>Builds the host the application runs inside.</summary>
+    /// <summary>
+    /// Where this user's client settings live: the device token and the control plane address.
+    /// </summary>
+    /// <remarks>
+    /// In the user's own configuration directory (<c>~/.config</c> on Linux, <c>%APPDATA%</c>
+    /// on Windows), not next to the executable or in the source tree. A token beside the
+    /// build output is copied wherever the output is, including into the test project's, and
+    /// a secret belongs in exactly one place that only its owner can read.
+    /// </remarks>
+    /// <returns>The path, whether or not the file exists.</returns>
+    public static string DefaultClientSettingsPath() => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "vpn-control-plane",
+        "client.json");
+
+    /// <summary>Builds the host the application runs inside, with this user's client settings.</summary>
     /// <param name="args">Command line arguments, so a setting can be overridden at launch.</param>
     /// <returns>An unstarted host whose service provider has everything the window needs.</returns>
-    public static IHost CreateHost(string[] args)
+    public static IHost CreateHost(string[] args) => CreateHost(args, DefaultClientSettingsPath());
+
+    /// <summary>Builds the host the application runs inside.</summary>
+    /// <param name="args">Command line arguments, so a setting can be overridden at launch.</param>
+    /// <param name="clientSettingsPath">
+    /// The user's client settings file, or <c>null</c> to use none. Tests pass <c>null</c>, so
+    /// what they check never depends on the machine they run on.
+    /// </param>
+    /// <returns>An unstarted host whose service provider has everything the window needs.</returns>
+    public static IHost CreateHost(string[] args, string? clientSettingsPath)
     {
         HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 
-        // The device token and the real control plane address live in this git-ignored file,
-        // next to the executable. Optional, so a fresh clone still starts in demo mode.
-        builder.Configuration.AddJsonFile(
-            Path.Combine(AppContext.BaseDirectory, "appsettings.Local.json"),
-            optional: true,
-            reloadOnChange: false);
+        // Optional, so a machine without it starts in demo mode. Added last, so it overrides
+        // the defaults shipped in appsettings.json.
+        string? directory = clientSettingsPath is null ? null : Path.GetDirectoryName(clientSettingsPath);
+        if (directory is not null && Directory.Exists(directory))
+        {
+            builder.Configuration.AddJsonFile(
+                new Microsoft.Extensions.FileProviders.PhysicalFileProvider(directory),
+                Path.GetFileName(clientSettingsPath!),
+                optional: true,
+                reloadOnChange: false);
+        }
 
         builder.Services.AddOptions<DesktopOptions>()
             .Bind(builder.Configuration.GetSection(DesktopOptions.SectionName));
