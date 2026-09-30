@@ -173,6 +173,9 @@
       - "{{ hostvars[item].ipv6_egress | bool | string | lower }}"
     stdin: "{{ vault_agent_tokens[item] }}"
   loop: "{{ groups['gateways'] }}"
+  # A gateway outside this run (--limit) has no public key fact; it keeps whatever the
+  # control plane already holds for it rather than failing the run.
+  when: hostvars[item].wireguard_public_key is defined
   register: control_plane_registration
   changed_when: "'Created' in control_plane_registration.stdout"
   no_log: true

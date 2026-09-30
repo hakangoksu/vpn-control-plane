@@ -57,6 +57,18 @@
     - { name: kernel.kptr_restrict, value: "2" }
     - { name: kernel.dmesg_restrict, value: "1" }
 
+- name: Keep the admin password hash at a sensible cost
+  # 5000 rounds of SHA-512 crypt, the glibc default. The password is 32 random characters,
+  # about 190 bits, so hash cost adds nothing against guessing it; passlib's default of
+  # 656000 rounds only made every sudo take seconds, over a minute on a slow virtual CPU.
+  ansible.builtin.user:
+    name: "{{ admin_user }}"
+    password: "{{ vault_admin_sudo_password | password_hash('sha512', admin_password_salt, rounds=5000) }}"
+    update_password: always
+  vars:
+    admin_password_salt: "{{ (inventory_hostname ~ 'vpn-admin') | hash('sha256') | truncate(16, True, '') }}"
+  no_log: true
+
 - name: Lock the root password
   ansible.builtin.user:
     name: root

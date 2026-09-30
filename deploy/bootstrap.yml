@@ -8,6 +8,8 @@
   hosts: fresh_hosts
   gather_facts: false
   vars:
+    # A fixed salt per host keeps the hash stable, so a second run reports no change.
+    admin_password_salt: "{{ (inventory_hostname ~ 'vpn-admin') | hash('sha256') | truncate(16, True, '') }}"
     ansible_user: root
     ansible_password: "{{ vault_bootstrap_root_passwords[inventory_hostname] }}"
     ansible_ssh_private_key_file: null
@@ -24,7 +26,7 @@
         groups: sudo
         append: true
         shell: /bin/bash
-        password: "{{ vault_admin_sudo_password | password_hash('sha512', 65534 | random(seed=inventory_hostname) | string) }}"
+        password: "{{ vault_admin_sudo_password | password_hash('sha512', admin_password_salt, rounds=5000) }}"
         update_password: always
 
     - name: Authorise the admin SSH key
