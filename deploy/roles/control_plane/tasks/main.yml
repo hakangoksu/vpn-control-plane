@@ -179,3 +179,22 @@
   register: control_plane_registration
   changed_when: "'Created' in control_plane_registration.stdout"
   no_log: true
+
+- name: Remove image archives from earlier deployments
+  ansible.builtin.shell: |
+    set -eu
+    removed=0
+    for f in {{ control_plane_dir }}/{{ control_plane_image }}-*.tar.gz; do
+      [ -e "$f" ] || continue
+      [ "$(basename "$f")" = "{{ control_plane_archive }}" ] && continue
+      rm -f "$f"; removed=$((removed + 1))
+    done
+    for tag in $(docker images {{ control_plane_image }} --format '{{ '{{' }}.Tag{{ '}}' }}'); do
+      [ "{{ control_plane_image }}:$tag" = "{{ control_plane_tag }}" ] && continue
+      docker rmi "{{ control_plane_image }}:$tag" >/dev/null; removed=$((removed + 1))
+    done
+    echo "$removed"
+  args:
+    executable: /bin/bash
+  register: control_plane_cleanup
+  changed_when: control_plane_cleanup.stdout | int > 0
