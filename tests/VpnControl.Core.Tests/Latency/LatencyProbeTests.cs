@@ -124,6 +124,38 @@ public sealed class LatencyProbeTests
         measurement.IsHealthy.Should().BeFalse();
     }
 
+    [Fact]
+    public async Task The_tcp_probe_times_a_completed_handshake()
+    {
+        using var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+        listener.Start();
+        int port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+        var probe = new TcpConnectLatencyProbe(port, TimeSpan.FromSeconds(2));
+
+        LatencyMeasurement measurement = await probe.ProbeAsync(TestServers.Create("loopback") with { EndpointHost = "127.0.0.1" });
+
+        measurement.IsReachable.Should().BeTrue();
+        measurement.RoundTrip.Should().BeLessThan(TimeSpan.FromMilliseconds(500));
+    }
+
+    [Fact]
+    public async Task The_tcp_probe_counts_a_refused_connection_as_an_answer()
+    {
+        // A reset comes back after one round trip, like a SYN-ACK, so it measures the path.
+        int port;
+        using (var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0))
+        {
+            listener.Start();
+            port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+        }
+
+        var probe = new TcpConnectLatencyProbe(port, TimeSpan.FromSeconds(2));
+
+        LatencyMeasurement measurement = await probe.ProbeAsync(TestServers.Create("loopback") with { EndpointHost = "127.0.0.1" });
+
+        measurement.IsReachable.Should().BeTrue();
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(70000)]

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net;
 using System.Net.Sockets;
 using VpnControl.Core.Servers;
 
@@ -56,18 +57,50 @@ public sealed class TcpConnectLatencyProbe : ILatencyProbe
     {
         ArgumentNullException.ThrowIfNull(server);
 
-        using var socket = new Socket(SocketType.Stream, ProtocolType.Tcp);
         using var timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutSource.CancelAfter(_timeout);
 
-        // A stopwatch is started rather than reading the wall clock twice, because a
-        // clock adjustment between two reads can produce a negative interval.
-        long start = Stopwatch.GetTimestamp();
-
         try
         {
-            await socket.ConnectAsync(server.EndpointHost, _probePort, timeoutSource.Token).ConfigureAwait(false);
-            return LatencyMeasurement.Success(server, Stopwatch.GetElapsedTime(start));
+            // Name resolution is done first and kept out of the measurement. Timing
+            // Socket.ConnectAsync(host, port) would include the DNS lookup and every failed
+            // attempt on an address family the local network cannot reach, which made a
+            // gateway with an AAAA record look a second slower than one without.
+            IPAddress[] addresses = await Dns.GetHostAddressesAsync(server.EndpointHost, timeoutSource.Token).ConfigureAwait(false);
+            if (addresses.Length == 0)
+            {
+                return LatencyMeasurement.Failure(server, "The host name has no addresses.");
+            }
+
+            string lastError = "No address answered.";
+
+            // IPv4 first. Every gateway has it, and a client on a network without IPv6 would
+            // otherwise spend part of its budget on an attempt that cannot succeed. The round
+            // trip over either family ranks gateways the same way.
+            foreach (IPAddress address in addresses.OrderBy(a => a.AddressFamily == AddressFamily.InterNetwork ? 0 : 1))
+            {
+                using var socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+
+                // A stopwatch is started rather than reading the wall clock twice, because a
+                // clock adjustment between two reads can produce a negative interval.
+                long start = Stopwatch.GetTimestamp();
+
+                try
+                {
+                    await socket.ConnectAsync(new IPEndPoint(address, _probePort), timeoutSource.Token).ConfigureAwait(false);
+                    return LatencyMeasurement.Success(server, Stopwatch.GetElapsedTime(start));
+                }
+                catch (SocketException ex) when (ex.SocketErrorCode == SocketError.ConnectionRefused)
+                {
+                    return LatencyMeasurement.Success(server, Stopwatch.GetElapsedTime(start));
+                }
+                catch (SocketException ex)
+                {
+                    lastError = ex.SocketErrorCode.ToString();
+                }
+            }
+
+            return LatencyMeasurement.Failure(server, lastError);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -78,10 +111,6 @@ public sealed class TcpConnectLatencyProbe : ILatencyProbe
         catch (OperationCanceledException)
         {
             return LatencyMeasurement.Failure(server, $"No answer within {_timeout.TotalMilliseconds:F0} ms.");
-        }
-        catch (SocketException ex) when (ex.SocketErrorCode == SocketError.ConnectionRefused)
-        {
-            return LatencyMeasurement.Success(server, Stopwatch.GetElapsedTime(start));
         }
         catch (SocketException ex)
         {
