@@ -394,6 +394,40 @@ and the inventory live in a directory outside the repository. The vault password
 desktop keyring rather than in a file beside the vault, so the encrypted secrets and their key
 are never on disk together in the clear.
 
+### An incident: a migration lock left behind
+
+The first deployment through `setup.sh` took the API down. EF Core 10 guards migrations with a
+lock it stores as a row, and on SQLite that row survives a process killed while holding it. The
+container was recreated at the moment a start was checking migrations, the row stayed, and
+every later start waited on it: nginx answered 502 until I removed the row by hand. No data was
+lost. The fix is to check for pending migrations first and take the lock only when there are
+some, which is only on the start that upgrades the schema. The general lesson I took is that
+anything a deployment can interrupt should not hold state across the interruption on the common
+path.
+
+### One command to set it up
+
+The Ansible roles were complete but asked the reader to assemble an inventory, a vault, a
+keyring entry and two playbook runs before anything worked, which is a job description, not a
+setup. `setup.sh` asks for the things only the user knows (a domain, the servers, which one
+runs the control plane), generates everything else, checks DNS before touching a server, and
+ends by connecting through every gateway. It keeps its answers and never regenerates a secret,
+so running it again is safe and is also how a server is added. It is written in Python with
+the standard library only, because it has to parse, prompt and handle secrets carefully, which
+is where shell scripts go wrong.
+
+### The client's layout
+
+The first window was a developer's view: the gateway table took the most space, the status was
+a small line, an endpoint address was shown as if a user needed it, the log took a quarter of
+the window, and 150 ms latency was drawn in red. It worked and it read as a debugging tool. The
+redesign follows what the user opened the window for. The largest text says whether traffic is
+protected and where it leaves; below it is one button whose label says what a press does; the
+locations show a country code, the city, tags only when they carry information, and latency as
+neutral bars; red is used only for a failure. The log is still there, folded into Diagnostics.
+None of it touched the connection logic: the view models gained a headline, a subtitle, a single
+primary command and a signal level, each covered by tests, and the rest is XAML.
+
 ## What I know is missing
 
 - No Windows tunnel. `WindowsServiceTunnel` throws from every member and documents what the real

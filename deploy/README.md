@@ -21,6 +21,27 @@ existing server also hosts the control plane.
 - A registration answers only after the gateway has confirmed it admitted the key, so the
   client's first handshake is not dropped.
 
+## The short way
+
+From the repository root:
+
+```bash
+./setup.sh
+```
+
+It asks for your domain and servers and does everything below by itself: it generates the
+secrets, writes the inventory, tells you which DNS records to add and waits for them, runs
+`bootstrap.yml` on new servers and `site.yml` on all of them, removes the provider's root
+passwords from the vault once they are useless, enrolls this machine as a device, and connects
+through every gateway to check the result. Answers and secrets are kept in
+`~/.config/vpn-control-plane` (mode 0700, outside the repository); pass `--config-dir` to use
+another place. Run it again whenever you like: it converges, and sets up any server you have
+added to `setup.json`. `./setup.sh --check-only` checks DNS and every gateway without changing
+anything.
+
+The rest of this page is what it does, step by step, for doing it by hand or for knowing what
+happened.
+
 ## Prerequisites
 
 - Control machine: Ansible (`ansible-core`, with `passlib` for password hashing), Docker (to
@@ -110,8 +131,9 @@ ssh <control-plane-host> sudo docker compose -f /opt/vpn-control-plane/compose.y
   exec -T api dotnet VpnControl.Api.dll admin device add laptop
 ```
 
-Put the token and the API address in the client's git-ignored
-`src/VpnControl.Desktop/appsettings.Local.json`:
+Put the token and the API address in the client's settings file,
+`~/.config/vpn-control-plane/client.json` (`%APPDATA%\vpn-control-plane\client.json` on
+Windows), readable only by you (`chmod 600`) and outside the repository on purpose. For example:
 
 ```json
 {
