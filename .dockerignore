@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+**/*.db
+**/*.db-shm
+**/*.db-wal
+**/appsettings.Local.json
+.git/
+tests/
+docs/
+deploy/

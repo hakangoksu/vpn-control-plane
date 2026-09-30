@@ -47,9 +47,10 @@ public sealed class DesktopOptions
 
     /// <summary>TCP port the real latency probe connects to.</summary>
     /// <remarks>
-    /// 443 suits a gateway that serves anything over HTTPS. A gateway that exposes nothing
-    /// but WireGuard can instead reject TCP on its WireGuard port with a reset, and the probe
-    /// times the reset; see <c>TcpConnectLatencyProbe</c>.
+    /// 443 suits a gateway that serves anything over HTTPS. The gateways in this project's
+    /// deployment expose nothing but SSH and WireGuard, so the deployment points this at 22:
+    /// the probe needs a TCP handshake from the host, and SSH is the one TCP port that is
+    /// open anyway. Nothing is opened for the probe's sake.
     /// </remarks>
     public int LatencyProbePort { get; set; } = 443;
 }

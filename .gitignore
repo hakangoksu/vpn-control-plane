@@ -41,3 +41,6 @@ Thumbs.db
 # local, never committed: real gateways, keys and endpoints
 appsettings.Local.json
 **/appsettings.Local.json
+
+# Python bytecode from running the agent tests
+__pycache__/
