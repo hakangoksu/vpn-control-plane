@@ -45,12 +45,20 @@ public sealed class DesktopOptions
     /// </remarks>
     public bool UseRealLatencyProbe { get; set; }
 
-    /// <summary>TCP port the real latency probe connects to.</summary>
+    /// <summary>
+    /// How the real latency probe measures: <c>Icmp</c> (the default) or <c>Tcp</c>.
+    /// </summary>
     /// <remarks>
-    /// 443 suits a gateway that serves anything over HTTPS. The gateways in this project's
-    /// deployment expose nothing but SSH and WireGuard, so the deployment points this at 22:
-    /// the probe needs a TCP handshake from the host, and SSH is the one TCP port that is
-    /// open anyway. Nothing is opened for the probe's sake.
+    /// ICMP measures the path without touching any service on the gateway. TCP is kept for
+    /// networks that filter ICMP; it times a handshake to <see cref="LatencyProbePort"/>.
+    /// </remarks>
+    public string LatencyProbeKind { get; set; } = "Icmp";
+
+    /// <summary>TCP port the TCP latency probe connects to.</summary>
+    /// <remarks>
+    /// 443 suits a gateway that serves anything over HTTPS. Pointing it at SSH works, but
+    /// SSH on the gateways in this project's deployment has a per-source connection limit,
+    /// and repeated refreshes spend that allowance; see <c>IcmpLatencyProbe</c>.
     /// </remarks>
     public int LatencyProbePort { get; set; } = 443;
 }

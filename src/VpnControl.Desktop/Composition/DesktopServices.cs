@@ -108,7 +108,10 @@ public static class DesktopServices
     {
         if (desktop.UseRealLatencyProbe)
         {
-            services.AddSingleton<ILatencyProbe>(_ => new TcpConnectLatencyProbe(desktop.LatencyProbePort));
+            services.AddSingleton<ILatencyProbe>(_ =>
+                string.Equals(desktop.LatencyProbeKind, "Tcp", StringComparison.OrdinalIgnoreCase)
+                    ? new TcpConnectLatencyProbe(desktop.LatencyProbePort)
+                    : new IcmpLatencyProbe());
             return;
         }
 

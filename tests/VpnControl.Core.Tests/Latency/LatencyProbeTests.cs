@@ -156,6 +156,28 @@ public sealed class LatencyProbeTests
         measurement.IsReachable.Should().BeTrue();
     }
 
+    [Fact]
+    public async Task The_icmp_probe_measures_the_loopback_address()
+    {
+        var probe = new IcmpLatencyProbe(TimeSpan.FromSeconds(2));
+
+        LatencyMeasurement measurement = await probe.ProbeAsync(TestServers.Create("loopback") with { EndpointHost = "127.0.0.1" });
+
+        measurement.IsReachable.Should().BeTrue(measurement.Error);
+        measurement.RoundTrip.Should().BeLessThan(TimeSpan.FromMilliseconds(500));
+    }
+
+    [Fact]
+    public async Task The_icmp_probe_reports_a_name_that_does_not_resolve_as_a_failure()
+    {
+        var probe = new IcmpLatencyProbe(TimeSpan.FromMilliseconds(500));
+
+        LatencyMeasurement measurement = await probe.ProbeAsync(TestServers.Create("nothing-here"));
+
+        measurement.IsReachable.Should().BeFalse();
+        measurement.Error.Should().NotBeNullOrWhiteSpace();
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(70000)]
