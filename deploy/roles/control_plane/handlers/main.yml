@@ -1,0 +1,17 @@
+---
+- name: Load the image
+  ansible.builtin.shell: |
+    set -o pipefail
+    gunzip -c {{ control_plane_dir }}/{{ control_plane_archive }} | docker load
+  args:
+    executable: /bin/bash
+  changed_when: true
+
+- name: Restart the API
+  ansible.builtin.command: docker compose -f {{ control_plane_dir }}/compose.yml up -d --force-recreate
+  changed_when: true
+
+- name: Reload nginx
+  ansible.builtin.service:
+    name: nginx
+    state: reloaded

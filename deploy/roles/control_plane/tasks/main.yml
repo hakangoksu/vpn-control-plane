@@ -1,0 +1,178 @@
+---
+- name: Find the commit being deployed
+  ansible.builtin.command: git -C {{ playbook_dir }}/.. rev-parse --short=12 HEAD  # noqa: command-instead-of-module  (read only, the git module clones)
+  delegate_to: localhost
+  become: false
+  run_once: true
+  changed_when: false
+  register: control_plane_commit
+
+- name: Name the image after the commit
+  ansible.builtin.set_fact:
+    control_plane_tag: "{{ control_plane_image }}:{{ control_plane_commit.stdout }}"
+    control_plane_archive: "{{ control_plane_image }}-{{ control_plane_commit.stdout }}.tar.gz"
+
+- name: Build the API image on the control machine
+  # Built locally and shipped as an archive, so the server needs no source checkout,
+  # no SDK and no registry credentials.
+  ansible.builtin.shell: |
+    set -euo pipefail
+    out="${TMPDIR:-/tmp}/{{ control_plane_archive }}"
+    if [ ! -f "$out" ]; then
+      docker build --quiet -f src/VpnControl.Api/Dockerfile -t {{ control_plane_tag }} . >/dev/null
+      docker save {{ control_plane_tag }} | gzip -1 > "$out"
+    fi
+    echo "$out"
+  args:
+    chdir: "{{ playbook_dir }}/.."
+    executable: /bin/bash
+  delegate_to: localhost
+  become: false
+  run_once: true
+  changed_when: false
+  register: control_plane_local_archive
+
+- name: Create the deployment directory
+  ansible.builtin.file:
+    path: "{{ control_plane_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Upload the image
+  ansible.builtin.copy:
+    src: "{{ control_plane_local_archive.stdout }}"
+    dest: "{{ control_plane_dir }}/{{ control_plane_archive }}"
+    mode: "0600"
+  notify: Load the image
+
+- name: Load a newly uploaded image before starting it
+  ansible.builtin.meta: flush_handlers
+
+- name: Write the API's local settings
+  ansible.builtin.copy:
+    content: "{{ control_plane_settings | to_nice_json }}\n"
+    dest: "{{ control_plane_dir }}/appsettings.Local.json"
+    owner: root
+    group: root
+    # Read by the container's unprivileged user through the bind mount. Nothing secret
+    # is in it: addresses and host names only.
+    mode: "0644"
+  vars:
+    control_plane_settings:
+      AllowedHosts: "{{ control_plane_domain }};localhost"
+      ControlPlane:
+        SeedDemoCatalog: false
+        AddressPrefix: "{{ tunnel_ipv4_prefix }}"
+        Ipv6Prefix: "{{ tunnel_ipv6_prefix }}"
+        DnsServers:
+          - "{{ tunnel_ipv4_prefix }}.0.1"
+          - "{{ tunnel_ipv6_prefix }}::1"
+        AllowedIps: ["0.0.0.0/0", "::/0"]
+  notify: Restart the API
+
+- name: Write the compose file
+  ansible.builtin.template:
+    src: compose.yml.j2
+    dest: "{{ control_plane_dir }}/compose.yml"
+    mode: "0640"
+  notify: Restart the API
+
+- name: Start the API
+  ansible.builtin.command: docker compose -f {{ control_plane_dir }}/compose.yml up -d --remove-orphans
+  register: control_plane_up
+  changed_when: "'Started' in control_plane_up.stderr or 'Recreated' in control_plane_up.stderr"
+
+- name: Apply pending restarts
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait until the API answers
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ control_plane_local_port }}/health"
+    headers:
+      Host: localhost
+  register: control_plane_health
+  until: control_plane_health.status == 200
+  retries: 20
+  delay: 2
+
+- name: Rate limit zone for the API
+  ansible.builtin.copy:
+    dest: /etc/nginx/conf.d/vpn-control-plane-limits.conf
+    content: |
+      # Managed by ansible (control_plane).
+      # Per client address. Legitimate traffic is a handful of requests per connection
+      # and one poll every few seconds per gateway.
+      limit_req_zone $binary_remote_addr zone=vpn_control_plane:10m rate=5r/s;
+    mode: "0644"
+  notify: Reload nginx
+
+- name: Obtain a certificate
+  # certonly: the nginx plugin answers the challenge but does not edit any site file.
+  # The server block below is written by this role and stays under its control.
+  ansible.builtin.command:
+    cmd: >-
+      certbot certonly --nginx --non-interactive --agree-tos
+      --cert-name {{ control_plane_domain }} -d {{ control_plane_domain }}
+    creates: "/etc/letsencrypt/live/{{ control_plane_domain }}/fullchain.pem"
+
+- name: Write the nginx site
+  ansible.builtin.template:
+    src: nginx-site.conf.j2
+    dest: /etc/nginx/sites-available/vpn-control-plane.conf
+    mode: "0644"
+  notify: Reload nginx
+
+- name: Enable the nginx site
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/vpn-control-plane.conf
+    dest: /etc/nginx/sites-enabled/vpn-control-plane.conf
+    state: link
+  notify: Reload nginx
+
+- name: Check the whole nginx configuration before reloading
+  ansible.builtin.command: nginx -t
+  changed_when: false
+
+- name: Reload nginx now
+  ansible.builtin.meta: flush_handlers
+
+- name: Register every gateway with its public key and agent token
+  # The token goes in on standard input, never as an argument, so it does not appear in
+  # the process list on the host.
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - -f
+      - "{{ control_plane_dir }}/compose.yml"
+      - exec
+      - -T
+      - api
+      - dotnet
+      - VpnControl.Api.dll
+      - admin
+      - gateway
+      - upsert
+      - --id
+      - "{{ hostvars[item].gateway_id }}"
+      - --name
+      - "{{ hostvars[item].gateway_name }}"
+      - --city
+      - "{{ hostvars[item].gateway_city }}"
+      - --country
+      - "{{ hostvars[item].gateway_country }}"
+      - --host
+      - "{{ hostvars[item].gateway_endpoint_host }}"
+      - --port
+      - "{{ wireguard_port | string }}"
+      - --public-key
+      - "{{ hostvars[item].wireguard_public_key }}"
+      - --ipv6-egress
+      - "{{ hostvars[item].ipv6_egress | bool | string | lower }}"
+    stdin: "{{ vault_agent_tokens[item] }}"
+  loop: "{{ groups['gateways'] }}"
+  register: control_plane_registration
+  changed_when: "'Created' in control_plane_registration.stdout"
+  no_log: true

@@ -1,0 +1,20 @@
+---
+# Non-secret settings shared by every host.
+
+# Account created on fresh hosts. Root login is disabled once it works.
+admin_user: gwadmin
+admin_ssh_public_key_file: ~/.ssh/vpn_gateways.pub
+
+wireguard_port: 51820
+
+# Tunnel addressing. Every gateway uses the same ranges: each gateway is its own
+# network, and a client is on one gateway at a time.
+tunnel_ipv4_prefix: "10.99"
+# First four groups of a unique local /64 (RFC 4193). Generate your own random
+# 40 bit global ID, for example:
+#   python3 -c "import secrets; g=secrets.token_hex(5); print(f'fd{g[:2]}:{g[2:6]}:{g[6:]}:0')"
+tunnel_ipv6_prefix: "fd00:1111:2222:0"
+
+# Public address of the control plane API, served by nginx on the control plane host.
+control_plane_domain: vpn.example.invalid
+control_plane_url: "https://{{ control_plane_domain }}"

@@ -1,0 +1,53 @@
+#!/usr/sbin/nft -f
+# Managed by ansible (host_firewall).
+#
+# Only this table is replaced on reload. There is deliberately no "flush ruleset":
+# that would also remove the gateway's forward and NAT table, which is loaded by its
+# own unit.
+
+table inet host_filter
+delete table inet host_filter
+
+table inet host_filter {
+    set ssh_meter_v4 {
+        type ipv4_addr
+        flags dynamic
+        timeout 1m
+    }
+
+    set ssh_meter_v6 {
+        type ipv6_addr
+        flags dynamic
+        timeout 1m
+    }
+
+    chain input {
+        type filter hook input priority filter; policy drop;
+
+        ct state established,related accept
+        ct state invalid drop
+        iif "lo" accept
+
+        # ICMPv6 carries neighbour discovery and router advertisements. Without it the
+        # host loses its IPv6 address and default route.
+        meta l4proto ipv6-icmp accept
+        ip protocol icmp icmp type { echo-request, destination-unreachable, time-exceeded } limit rate 20/second accept
+
+        # SSH, limited per source address: ten new connections a minute is plenty for an
+        # administrator and slows a password spray to a crawl, not that passwords work.
+        tcp dport 22 ct state new add @ssh_meter_v4 { ip saddr limit rate 10/minute burst 10 packets } accept
+        tcp dport 22 ct state new add @ssh_meter_v6 { ip6 saddr limit rate 10/minute burst 10 packets } accept
+
+        udp dport {{ wireguard_port }} accept
+
+        # Tunnel clients may use the resolver on the gateway and ping it. Nothing else on
+        # the host is reachable from the tunnel.
+        iifname "wg0" udp dport 53 accept
+        iifname "wg0" tcp dport 53 accept
+        iifname "wg0" ip protocol icmp accept
+    }
+
+    chain output {
+        type filter hook output priority filter; policy accept;
+    }
+}

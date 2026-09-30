@@ -1,0 +1,31 @@
+# Managed by ansible (control_plane).
+name: vpn-control-plane
+
+services:
+  api:
+    image: {{ control_plane_tag }}
+    restart: unless-stopped
+    ports:
+      # Loopback only. The API is reached through nginx, which terminates TLS and
+      # applies the rate limit.
+      - "127.0.0.1:{{ control_plane_local_port }}:8080"
+    volumes:
+      - data:/data
+      - ./appsettings.Local.json:/app/appsettings.Local.json:ro
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    pids_limit: 128
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+volumes:
+  data:

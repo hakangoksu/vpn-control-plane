@@ -1,0 +1,21 @@
+---
+# Example only. Put your real values in a file with the same keys and encrypt it:
+#   ansible-vault encrypt group_vars/all/vault.yml
+# Generate every value; do not type one.
+
+# sudo password for admin_user on fresh hosts:
+#   python3 -c "import secrets,string; a=string.ascii_letters+string.digits; print(''.join(secrets.choice(a) for _ in range(32)))"
+vault_admin_sudo_password: "replace-me"
+
+# Root passwords the provider issued, used once by bootstrap.yml and useless afterwards,
+# because bootstrap locks the root password and the hardening role disables password login.
+vault_bootstrap_root_passwords:
+  gw1: "replace-me"
+  gw2: "replace-me"
+
+# One token per gateway for the peer sync agent:
+#   python3 -c "import secrets,base64; print('vpg_'+base64.urlsafe_b64encode(secrets.token_bytes(32)).decode().rstrip('='))"
+vault_agent_tokens:
+  gw1: "vpg_replace-me"
+  gw2: "vpg_replace-me"
+  gw3: "vpg_replace-me"

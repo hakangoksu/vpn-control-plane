@@ -1,0 +1,36 @@
+---
+# A validating resolver on every gateway, reachable only from inside the tunnel. Clients
+# are told to use it, so their DNS queries leave through the same gateway as their
+# traffic instead of going to whatever resolver their local network hands out.
+- name: Install unbound and the DNSSEC root trust anchor
+  # dns-root-data is only a recommendation of the unbound package, and without it the
+  # validator has no root key and unbound refuses to start.
+  ansible.builtin.apt:
+    name:
+      - unbound
+      - dns-root-data
+    state: present
+
+- name: Keep unbound out of the host's own DNS settings
+  # The package ships a unit that points the host's resolv.conf at 127.0.0.1. This
+  # resolver listens only on tunnel addresses, so that would break the host's DNS, and
+  # the host has no reason to change resolvers anyway.
+  ansible.builtin.systemd_service:
+    name: unbound-resolvconf
+    enabled: false
+    masked: true
+    state: stopped
+
+- name: Configure unbound for tunnel clients only
+  ansible.builtin.template:
+    src: vpn-gateway.conf.j2
+    dest: /etc/unbound/unbound.conf.d/vpn-gateway.conf
+    mode: "0644"
+    validate: unbound-checkconf %s
+  notify: Restart unbound
+
+- name: Start unbound at boot
+  ansible.builtin.service:
+    name: unbound
+    enabled: true
+    state: started

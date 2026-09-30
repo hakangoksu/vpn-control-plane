@@ -1,0 +1,41 @@
+# Managed by ansible (peer_sync).
+[Unit]
+Description=Sync WireGuard peers from the VPN control plane
+After=network-online.target wg-quick@wg0.service
+Wants=network-online.target
+Requires=wg-quick@wg0.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/vpn-peer-sync/vpn_peer_sync.py /etc/vpn-peer-sync/config.json --follow
+Restart=always
+RestartSec=5
+
+# Root is needed for wg and for the key file. Everything else root could do is taken
+# away: the only capability kept is managing network interfaces.
+CapabilityBoundingSet=CAP_NET_ADMIN
+AmbientCapabilities=CAP_NET_ADMIN
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadOnlyPaths=/
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_NETLINK AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,51 @@
+---
+# First contact with a fresh server: the only play that logs in as root with the
+# provider's password. It creates the admin account with an SSH key and locks the
+# root password. Everything after this connects as the admin account.
+#
+#   ansible-playbook -i <inventory> bootstrap.yml
+- name: Create the admin account on fresh hosts
+  hosts: fresh_hosts
+  gather_facts: false
+  vars:
+    ansible_user: root
+    ansible_password: "{{ vault_bootstrap_root_passwords[inventory_hostname] }}"
+    ansible_ssh_private_key_file: null
+    ansible_become: false
+  tasks:
+    - name: Install sudo
+      ansible.builtin.apt:
+        name: sudo
+        update_cache: true
+
+    - name: Create the admin user
+      ansible.builtin.user:
+        name: "{{ admin_user }}"
+        groups: sudo
+        append: true
+        shell: /bin/bash
+        password: "{{ vault_admin_sudo_password | password_hash('sha512', 65534 | random(seed=inventory_hostname) | string) }}"
+        update_password: always
+
+    - name: Authorise the admin SSH key
+      ansible.posix.authorized_key:
+        user: "{{ admin_user }}"
+        key: "{{ lookup('ansible.builtin.file', admin_ssh_public_key_file) }}"
+        exclusive: true
+
+    - name: Prove the key works before anything else changes
+      # Run from the control machine with the key alone. If this fails the play stops
+      # here, while the root password still works and nothing is locked out.
+      ansible.builtin.command: >-
+        ssh -o BatchMode=yes -o PasswordAuthentication=no
+        -o IdentitiesOnly=yes -i {{ admin_ssh_public_key_file | regex_replace('\.pub$', '') }}
+        {{ admin_user }}@{{ ansible_host }} true
+      delegate_to: localhost
+      changed_when: false
+
+    - name: Lock the root password
+      # Console recovery through the provider's panel still works; a network login as
+      # root with a password no longer can.
+      ansible.builtin.user:
+        name: root
+        password_lock: true

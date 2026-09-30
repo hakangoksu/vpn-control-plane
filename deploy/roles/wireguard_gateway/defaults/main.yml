@@ -1,0 +1,4 @@
+---
+# Interface the gateway's traffic leaves through. Taken from the default IPv4 route
+# unless the inventory says otherwise.
+uplink_interface: "{{ ansible_default_ipv4.interface }}"

@@ -1,0 +1,65 @@
+---
+- name: Install WireGuard tools
+  ansible.builtin.apt:
+    name: wireguard-tools
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Generate the gateway key on the gateway
+  # Created here and never copied anywhere. Only the public half is read back.
+  ansible.builtin.shell: |
+    set -eu
+    umask 077
+    wg genkey > /etc/wireguard/wg0.key
+  args:
+    creates: /etc/wireguard/wg0.key
+    executable: /bin/bash
+
+- name: Restrict the key file
+  ansible.builtin.file:
+    path: /etc/wireguard/wg0.key
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Derive the public key
+  ansible.builtin.shell: wg pubkey < /etc/wireguard/wg0.key
+  register: wireguard_gateway_pubkey
+  changed_when: false
+
+- name: Record the public key for the control plane play
+  ansible.builtin.set_fact:
+    wireguard_public_key: "{{ wireguard_gateway_pubkey.stdout | trim }}"
+
+- name: Write the interface configuration
+  ansible.builtin.template:
+    src: wg0.conf.j2
+    dest: /etc/wireguard/wg0.conf
+    owner: root
+    group: root
+    mode: "0600"
+  notify: Restart wg0
+
+- name: Forward packets between the tunnel and the uplink
+  ansible.posix.sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    sysctl_file: /etc/sysctl.d/61-vpn-gateway.conf
+    reload: true
+  loop:
+    - { name: net.ipv4.ip_forward, value: "1" }
+    # Turning IPv6 forwarding on makes the kernel stop accepting router advertisements,
+    # which is where these hosts get their IPv6 default route. accept_ra=2 keeps
+    # accepting them on the uplink while forwarding.
+    - { name: "net.ipv6.conf.{{ uplink_interface }}.accept_ra", value: "2" }
+    - { name: net.ipv6.conf.all.forwarding, value: "1" }
+
+- name: Bring wg0 up at boot
+  ansible.builtin.service:
+    name: wg-quick@wg0
+    enabled: true
+    state: started
+
+- name: Apply interface changes now
+  ansible.builtin.meta: flush_handlers

@@ -1,0 +1,64 @@
+# Managed by ansible (control_plane).
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name {{ control_plane_domain }};
+
+    # Certificate renewals still need plain HTTP. Everything else is sent to HTTPS.
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name {{ control_plane_domain }};
+
+    ssl_certificate /etc/letsencrypt/live/{{ control_plane_domain }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ control_plane_domain }}/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+    ssl_session_tickets off;
+
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer" always;
+    add_header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'" always;
+
+    server_tokens off;
+    client_max_body_size 16k;
+
+    # Tokens travel only in the Authorization header, never in a URL, and the combined
+    # log format does not record request headers.
+    access_log /var/log/nginx/vpn-control-plane.access.log combined;
+
+    location = /health {
+        limit_req zone=vpn_control_plane burst=10 nodelay;
+        proxy_pass http://127.0.0.1:{{ control_plane_local_port }};
+        proxy_set_header Host $host;
+    }
+
+    location /api/ {
+        limit_req zone=vpn_control_plane burst=20 nodelay;
+        limit_req_status 429;
+
+        proxy_pass http://127.0.0.1:{{ control_plane_local_port }};
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 15s;
+    }
+
+    # Nothing else exists. Swagger is not served in production.
+    location / {
+        return 404;
+    }
+}

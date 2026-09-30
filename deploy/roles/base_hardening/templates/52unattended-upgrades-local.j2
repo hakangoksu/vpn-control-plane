@@ -1,0 +1,10 @@
+// Managed by ansible (base_hardening).
+Unattended-Upgrade::Origins-Pattern {
+        "origin=Debian,codename=${distro_codename},label=Debian-Security";
+        "origin=Debian,codename=${distro_codename}-security,label=Debian-Security";
+};
+Unattended-Upgrade::Remove-Unused-Dependencies "true";
+// A kernel fix does nothing until the machine restarts. Rebooting at a fixed quiet
+// hour drops tunnels for under a minute, and the clients reconnect on their own.
+Unattended-Upgrade::Automatic-Reboot "true";
+Unattended-Upgrade::Automatic-Reboot-Time "04:30";

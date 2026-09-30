@@ -1,0 +1,35 @@
+---
+# Converges every host. Safe to run repeatedly.
+#
+#   ansible-playbook -i <inventory> site.yml --vault-password-file scripts/vault-password-from-keyring.sh
+
+- name: Harden fresh hosts
+  hosts: fresh_hosts
+  become: true
+  tags: [harden]
+  roles:
+    - base_hardening
+    - host_firewall
+
+- name: Turn every host into a WireGuard gateway
+  hosts: gateways
+  become: true
+  tags: [gateway]
+  roles:
+    - wireguard_gateway
+    - gateway_firewall
+    - dns_resolver
+
+- name: Run the control plane and register the gateways with it
+  hosts: control_plane
+  become: true
+  tags: [control_plane]
+  roles:
+    - control_plane
+
+- name: Keep gateway peers in step with the control plane
+  hosts: gateways
+  become: true
+  tags: [peer_sync]
+  roles:
+    - peer_sync

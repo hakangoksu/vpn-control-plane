@@ -1,0 +1,16 @@
+[Unit]
+Description=VPN gateway forward and NAT rules
+# Loaded after the host firewall and before the tunnel comes up, so wg0 never forwards
+# a packet without these rules in place.
+After=nftables.service ufw.service
+Before=wg-quick@wg0.service network-online.target
+Wants=network-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/vpn-gateway/firewall.nft
+ExecStop=/usr/sbin/nft delete table inet vpn_gateway
+
+[Install]
+WantedBy=multi-user.target

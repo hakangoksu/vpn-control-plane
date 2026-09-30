@@ -1,0 +1,87 @@
+---
+- name: Create the agent directory
+  ansible.builtin.file:
+    path: /usr/local/lib/vpn-peer-sync
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install the agent
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/peer-sync/vpn_peer_sync.py"
+    dest: /usr/local/lib/vpn-peer-sync/vpn_peer_sync.py
+    owner: root
+    group: root
+    mode: "0755"
+  register: peer_sync_agent
+
+- name: Create the configuration directory
+  ansible.builtin.file:
+    path: /etc/vpn-peer-sync
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Write the agent token
+  ansible.builtin.copy:
+    content: "{{ vault_agent_tokens[inventory_hostname] }}\n"
+    dest: /etc/vpn-peer-sync/token
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+
+- name: Write the agent configuration
+  ansible.builtin.copy:
+    content: "{{ peer_sync_config | to_nice_json }}\n"
+    dest: /etc/vpn-peer-sync/config.json
+    owner: root
+    group: root
+    mode: "0600"
+  vars:
+    peer_sync_config:
+      api_url: "{{ control_plane_url }}"
+      gateway_id: "{{ gateway_id }}"
+      interface: wg0
+      wg_quick_config: /etc/wireguard/wg0.conf
+      private_key_file: /etc/wireguard/wg0.key
+      token_file: /etc/vpn-peer-sync/token
+      ipv4_subnet: "{{ tunnel_ipv4_prefix }}.0.0/16"
+      ipv6_subnet: "{{ tunnel_ipv6_prefix }}::/64"
+
+- name: Remove the timer used by earlier versions
+  ansible.builtin.file:
+    path: /etc/systemd/system/vpn-peer-sync.timer
+    state: absent
+  register: peer_sync_old_timer
+
+- name: Stop the old timer
+  ansible.builtin.systemd_service:
+    name: vpn-peer-sync.timer
+    state: stopped
+    enabled: false
+    daemon_reload: true
+  when: peer_sync_old_timer.changed
+  failed_when: false
+
+- name: Check the agent against the live control plane before starting it
+  # A single run with the real settings. If the token, the TLS chain or the interface is
+  # wrong, the play stops here with the agent's own error.
+  ansible.builtin.command: /usr/bin/python3 /usr/local/lib/vpn-peer-sync/vpn_peer_sync.py /etc/vpn-peer-sync/config.json
+  changed_when: false
+
+- name: Install the service
+  ansible.builtin.template:
+    src: vpn-peer-sync.service.j2
+    dest: /etc/systemd/system/vpn-peer-sync.service
+    mode: "0644"
+  register: peer_sync_unit
+
+- name: Run the agent
+  ansible.builtin.systemd_service:
+    name: vpn-peer-sync.service
+    enabled: true
+    state: "{{ 'restarted' if (peer_sync_unit.changed or peer_sync_agent.changed) else 'started' }}"
+    daemon_reload: true

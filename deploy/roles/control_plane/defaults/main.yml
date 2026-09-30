@@ -1,0 +1,5 @@
+---
+control_plane_dir: /opt/vpn-control-plane
+# The API listens on loopback only; nginx on the same host is its only client.
+control_plane_local_port: 5080
+control_plane_image: vpn-control-plane-api

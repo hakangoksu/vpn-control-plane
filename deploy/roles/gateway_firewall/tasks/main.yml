@@ -1,0 +1,66 @@
+---
+- name: Install nftables
+  ansible.builtin.apt:
+    name: nftables
+    state: present
+
+- name: Create the configuration directory
+  ansible.builtin.file:
+    path: /etc/vpn-gateway
+    state: directory
+    mode: "0700"
+
+- name: Write the gateway's forward and NAT rules
+  ansible.builtin.template:
+    src: firewall.nft.j2
+    dest: /etc/vpn-gateway/firewall.nft
+    mode: "0600"
+    validate: nft -c -f %s
+  notify: Reload gateway firewall
+
+- name: Install the unit that loads them
+  ansible.builtin.copy:
+    src: vpn-gateway-firewall.service
+    dest: /etc/systemd/system/vpn-gateway-firewall.service
+    mode: "0644"
+  notify: Reload gateway firewall
+
+- name: Load the rules at boot
+  ansible.builtin.systemd_service:
+    name: vpn-gateway-firewall
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Open the existing host's firewall for the gateway
+  # Existing hosts keep ufw. These rules are added next to what is already there;
+  # nothing is removed or reset.
+  when: "'existing_hosts' in group_names"
+  block:
+    - name: Allow WireGuard
+      community.general.ufw:
+        rule: allow
+        proto: udp
+        port: "{{ wireguard_port | string }}"
+        comment: vpn-gateway wireguard
+
+    - name: Allow DNS from tunnel clients
+      community.general.ufw:
+        rule: allow
+        interface: wg0
+        direction: in
+        proto: "{{ item }}"
+        port: "53"
+        comment: vpn-gateway dns
+      loop: [udp, tcp]
+
+    - name: Route tunnel traffic to the uplink
+      community.general.ufw:
+        rule: allow
+        route: true
+        interface_in: wg0
+        interface_out: "{{ uplink_interface }}"
+        comment: vpn-gateway forward
+
+- name: Apply now
+  ansible.builtin.meta: flush_handlers

@@ -1,0 +1,63 @@
+---
+- name: Bring every package up to date
+  ansible.builtin.apt:
+    update_cache: true
+    upgrade: full
+    cache_valid_time: 3600
+
+- name: Install the packages the gateway needs
+  ansible.builtin.apt:
+    name:
+      - nftables
+      - unattended-upgrades
+      - apt-listchanges
+      - needrestart
+    state: present
+
+- name: Apply security updates automatically
+  ansible.builtin.template:
+    src: 52unattended-upgrades-local.j2
+    dest: /etc/apt/apt.conf.d/52unattended-upgrades-local
+    mode: "0644"
+
+- name: Run unattended upgrades daily
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+    mode: "0644"
+
+- name: Harden sshd
+  # A drop-in named 00- so it is read first. sshd keeps the first value it sees for most
+  # options, so these win over the provider's 50-cloud-init.conf.
+  ansible.builtin.template:
+    src: 00-hardening.conf.j2
+    dest: /etc/ssh/sshd_config.d/00-hardening.conf
+    mode: "0644"
+    validate: /usr/sbin/sshd -t -f %s
+  notify: Restart sshd
+
+- name: Kernel network settings
+  ansible.posix.sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    sysctl_file: /etc/sysctl.d/60-hardening.conf
+    reload: true
+  loop:
+    # Ignore ICMP redirects: a host on the path must not be able to rewrite routes.
+    - { name: net.ipv4.conf.all.accept_redirects, value: "0" }
+    - { name: net.ipv6.conf.all.accept_redirects, value: "0" }
+    - { name: net.ipv4.conf.all.send_redirects, value: "0" }
+    - { name: net.ipv4.conf.all.accept_source_route, value: "0" }
+    - { name: net.ipv6.conf.all.accept_source_route, value: "0" }
+    - { name: net.ipv4.tcp_syncookies, value: "1" }
+    - { name: net.ipv4.icmp_echo_ignore_broadcasts, value: "1" }
+    # Kernel pointers and dmesg are of use to an attacker and to nobody else here.
+    - { name: kernel.kptr_restrict, value: "2" }
+    - { name: kernel.dmesg_restrict, value: "1" }
+
+- name: Lock the root password
+  ansible.builtin.user:
+    name: root
+    password_lock: true

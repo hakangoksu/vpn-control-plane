@@ -1,0 +1,28 @@
+---
+uplink_interface: "{{ ansible_default_ipv4.interface }}"
+
+# On a host this project owns, forwarding is closed by default and only tunnel traffic
+# is let through. On an existing host other software, Docker for one, forwards too, so
+# this table must not drop what it does not recognise; the host's own firewall keeps
+# its default.
+gateway_forward_policy: "{{ 'drop' if 'fresh_hosts' in group_names else 'accept' }}"
+
+# Destinations a tunnel client must never reach through the gateway: private and
+# link-local ranges, which include the cloud metadata service at 169.254.169.254, and
+# the gateway provider's own neighbours. Reaching them would let a client probe the
+# provider's internal network from inside it.
+gateway_blocked_ipv4:
+  - 0.0.0.0/8
+  - 10.0.0.0/8
+  - 100.64.0.0/10
+  - 127.0.0.0/8
+  - 169.254.0.0/16
+  - 172.16.0.0/12
+  - 192.168.0.0/16
+  - 224.0.0.0/4
+  - 240.0.0.0/4
+gateway_blocked_ipv6:
+  - ::1/128
+  - fc00::/7
+  - fe80::/10
+  - ff00::/8

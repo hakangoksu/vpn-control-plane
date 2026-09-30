@@ -1,0 +1,49 @@
+# Copy this directory outside the repository, fill in your own hosts, and point
+# ansible at it with -i. Nothing below is real: every name is in the reserved
+# .invalid domain and every address is from a documentation range.
+all:
+  children:
+    gateways:
+      children:
+        # Fresh servers: this project owns them entirely, so they get the full
+        # hardening role and a firewall written from scratch.
+        fresh_hosts:
+          hosts:
+            gw1:
+              ansible_host: 192.0.2.10
+              gateway_id: gw1
+              gateway_name: Example 1
+              gateway_city: Riga
+              gateway_country: LV
+              gateway_endpoint_host: gw1.vpn.example.invalid
+              ipv6_egress: true
+            gw2:
+              ansible_host: 198.51.100.20
+              gateway_id: gw2
+              gateway_name: Example 2
+              gateway_city: Paris
+              gateway_country: FR
+              gateway_endpoint_host: gw2.vpn.example.invalid
+              ipv6_egress: true
+          vars:
+            ansible_user: gwadmin
+            ansible_ssh_private_key_file: ~/.ssh/vpn_gateways
+            ansible_become_password: "{{ vault_admin_sudo_password }}"
+        # Servers that already run other services. The hardening role and the
+        # host firewall are skipped; the gateway firewall adds only its own
+        # table and a few ufw rules next to what is already there.
+        existing_hosts:
+          hosts:
+            gw3:
+              ansible_host: 203.0.113.30
+              ansible_user: existing-admin
+              ansible_ssh_private_key_file: ~/.ssh/existing_host
+              gateway_id: gw3
+              gateway_name: Example 3
+              gateway_city: Istanbul
+              gateway_country: TR
+              gateway_endpoint_host: gw3.vpn.example.invalid
+              ipv6_egress: false
+    control_plane:
+      hosts:
+        gw3:

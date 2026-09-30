@@ -1,0 +1,6 @@
+---
+skip_list:
+  # uplink_interface, the tunnel prefixes and wireguard_public_key are shared between
+  # roles on purpose: the firewall, the resolver and the control plane must agree on
+  # them. Prefixing them per role would mean several names for one value.
+  - var-naming[no-role-prefix]

@@ -1,0 +1,20 @@
+---
+# The input side of the firewall on fresh hosts: everything is dropped except SSH,
+# WireGuard, and DNS from tunnel clients. The forward and NAT side belongs to the
+# gateway_firewall role, which is shared with existing hosts.
+- name: Write the host firewall
+  ansible.builtin.template:
+    src: nftables.conf.j2
+    dest: /etc/nftables.conf
+    mode: "0600"
+    validate: nft -c -f %s
+  notify: Reload nftables
+
+- name: Enable nftables at boot
+  ansible.builtin.service:
+    name: nftables
+    enabled: true
+    state: started
+
+- name: Apply the firewall now rather than at the end of the play
+  ansible.builtin.meta: flush_handlers

@@ -1,0 +1,10 @@
+# Managed by ansible (wireguard_gateway).
+#
+# No PrivateKey line: the key stays in wg0.key, which only root can read, and is loaded
+# in PostUp. Peers are not listed either. The sync agent adds and removes them from
+# the control plane's list.
+[Interface]
+Address = {{ tunnel_ipv4_prefix }}.0.1/16, {{ tunnel_ipv6_prefix }}::1/64
+ListenPort = {{ wireguard_port }}
+PostUp = wg set %i private-key /etc/wireguard/wg0.key
+SaveConfig = false

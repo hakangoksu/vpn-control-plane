@@ -1,0 +1,7 @@
+---
+- name: Restart wg0
+  # A restart drops open tunnels for a moment; the peer sync timer restores the peer
+  # list on its next run, within seconds.
+  ansible.builtin.service:
+    name: wg-quick@wg0
+    state: restarted
