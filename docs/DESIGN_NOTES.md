@@ -111,12 +111,27 @@ a UDP probe of its port cannot tell "unreachable" from "working correctly and st
 ICMP needs elevated privileges on some platforms. A real handshake needs the key I have not been
 given yet.
 
-So `TcpConnectLatencyProbe` times a TCP handshake to port 443, which tracks the path well enough
-to rank gateways and needs no privileges. It is not the tunnel's latency, and I made sure nothing
-in the UI says it is. Putting the measurement behind `ILatencyProbe` was the right call for a
-second reason I did not anticipate: it let me write `DeterministicLatencyProbe`, which is what
-makes the standalone mode useful. Plausible, stable numbers for gateways that do not exist, with
-the pane saying they are simulated.
+So `TcpConnectLatencyProbe` times a TCP handshake, which tracks the path well enough to rank
+gateways and needs no privileges. It is not the tunnel's latency, and I made sure nothing in the
+UI says it is. Putting the measurement behind `ILatencyProbe` was the right call for a second
+reason I did not anticipate: it let me write `DeterministicLatencyProbe`, which is what makes the
+standalone mode useful. Plausible, stable numbers for gateways that do not exist, with the pane
+saying they are simulated.
+
+Real gateways taught me two more things. The first probe timed `Socket.ConnectAsync(host, port)`,
+which includes the DNS lookup and every failed attempt on an address family the network cannot
+reach. Behind a network without IPv6, every gateway with an AAAA record measured about a second
+slower than the one without. The probe now resolves first, keeps that out of the figure, and
+tries IPv4 before IPv6.
+
+The second was that my gateways expose only SSH and WireGuard, so the only TCP port to time was
+SSH, and SSH sits behind a per-source connection limit. A few refreshes spent the allowance, a
+SYN was dropped, and the figure grew by TCP's one second retransmission delay. I first tried
+rejecting TCP on the WireGuard port with a reset, which would have given a round trip without a
+service behind it, but the hosting provider drops outgoing resets. So the default is now
+`IcmpLatencyProbe`. On Linux `Ping` uses an unprivileged ICMP socket, so the privilege concern
+above turned out not to apply on the platform I run, and the SSH limit stays strict. The TCP
+probe is still there for networks that filter ICMP.
 
 ## The catalog client and its two implementations
 
@@ -163,14 +178,12 @@ and grouping the routes into an extension method per area keeps the startup file
 without it. I did split them into `ServerEndpoints`, `PeerEndpoints` and `HealthEndpoints`,
 because a minimal API is pleasant right up to the point where `Program.cs` is four hundred lines.
 
-The API key filter is attached to the route group, not to each endpoint. A third peer endpoint
-added later cannot forget it, which is how an endpoint ends up unprotected.
+The authentication filter is attached to the route group, not to each endpoint. A third peer
+endpoint added later cannot forget it, which is how an endpoint ends up unprotected.
 
-Two things I want to flag as deliberate weaknesses rather than oversights. The shared static API
-key identifies nobody and cannot be revoked per device; it is there to show where a credential
-attaches. And `EnsureCreatedAsync` instead of migrations is right for a database I throw away
-and wrong for one anybody cares about, because it cannot alter an existing schema and will
-silently leave an old one in place. Both are documented where they are used, not just here.
+The first version had a shared static API key and `EnsureCreatedAsync`, both marked as
+deliberate weaknesses of a lab. Putting the API on the internet made both of them wrong, so
+they are gone; the section on going live below explains what replaced them.
 
 The uniqueness of a peer key per gateway is enforced by a database index, not only by the
 handler's check. Two concurrent registrations can both read the same free address index before
@@ -265,6 +278,106 @@ The exhaustive state machine theory over all thirty-six ordered pairs is the tes
 I could only keep one. It asserts against the published table rather than a list, so it stays
 true as the table changes and fails when the table changes by accident.
 
+## Going live: from a lab to four real gateways
+
+The project started with a simulated tunnel and fictional gateways. It now runs against four
+real ones: three fresh virtual servers and one existing server that also hosts the control
+plane. Each decision below is one I expect to be asked about.
+
+### Per-device tokens instead of a shared key
+
+A shared key has to be in every client, so one leaked configuration lets anyone register as
+many peers as they like on my servers, and the only way to stop them is to change the key for
+everybody. I replaced it with a token per device and a token per gateway: 256 random bits,
+stored as a SHA-256 hash, sent as a bearer credential. A device token can manage only that
+device's own registration; a gateway token can read only that gateway's peer list. Revoking one
+device removes its peers and touches nothing else. SHA-256 without a salt is enough because the
+input is random: salting and slow hashing defend guessable passwords, and nobody guesses 256
+bits. The cost is an enrolment step, done from a command line on the host.
+
+### Admin on the command line, not over HTTP
+
+Enrolling and revoking devices and registering gateways are `admin` subcommands of the API
+binary, run inside the container over SSH. That means there is no admin endpoint to attack and
+no admin credential to leak: reaching the commands already requires a shell on the host, which
+is a stronger check than anything the API could add. The cost is that a revocation made there
+cannot wake the gateways' held polls, since it runs in another process, so it takes effect on
+the poll's timeout, ten seconds at most.
+
+### Gateways pull; the control plane never connects to them
+
+The alternative was the control plane pushing peers to gateways over SSH. That would make the API
+the holder of a root credential for every gateway, and one compromise of the API would be a
+compromise of the fleet. With a pull, each gateway holds one narrow token and the API holds
+nothing. I also made the agent validate what it receives: it admits a peer only if its addresses
+are single hosts inside the gateway's tunnel range. Without that, a compromised API could hand
+a peer `0.0.0.0/0` and have the gateway route every client's traffic to it. The agent is the
+last place the gateway can refuse, so it refuses there.
+
+### Long poll with an acknowledgement
+
+A plain poll every few seconds produced a first handshake of five to six seconds. The client's
+handshake reached the gateway before the gateway had admitted the key, WireGuard dropped it
+silently, and the client retried after its fixed five second timeout. Polling faster only makes
+that race less likely. The fix is a protocol: the agent long-polls with the version it last
+applied, a registration wakes the held poll, and the agent's next request carries the version
+it has just applied, which is the acknowledgement the registration waits for before answering
+the client. The response says whether the gateway confirmed, and the wait is bounded so a dead
+gateway delays a registration by a few seconds and no more. Measured on the real deployment,
+registration to first handshake went from about six seconds to about one. The state is in
+memory, which is right for one instance; several would need a shared store for the version and
+the wake-up signal. Versions start from the clock at startup, so an acknowledgement from before
+a restart can never confirm a registration made after it.
+
+### One registration per device
+
+Registering again, on any gateway, releases what the device held before. The client runs one
+tunnel, so an older registration can only be left over from a crash, and leaving it would keep a
+key admitted that nothing will use. It also caps what a stolen device token can consume at one
+address.
+
+### IPv6: routed into the tunnel even where the gateway cannot forward it
+
+Three gateways have IPv6 and one does not. The easy option on the one without would be to leave
+IPv6 out of the client's routes, and that would leak: the client's IPv6 traffic would go straight
+out of its own network, outside the tunnel. So every client routes `::/0` into the tunnel and
+gets an address from a unique local /64. Where the gateway has IPv6, it is NATed out; where it
+does not, the gateway refuses it with an ICMPv6 "administratively prohibited", and the
+application falls back to IPv4 at once instead of waiting for a timeout. Measured: the IPv6
+attempt fails in under 300 ms on that gateway. RFC 6724 ranks a unique local source below IPv4,
+so most connections never try IPv6 at all.
+
+### Migrations instead of `EnsureCreated`
+
+A deployment keeps its database across upgrades, and `EnsureCreated` cannot alter an existing
+schema. The first new column would have failed at runtime. Migrations are applied at startup,
+which suits one instance; several instances would move that into the deployment pipeline.
+
+### What the gateway firewall refuses
+
+Clients cannot reach each other, private and link-local ranges, or outbound SMTP. The
+link-local block matters more than it looks: without it, any client could query the cloud
+provider's metadata service at 169.254.169.254 from inside the provider's network. SMTP is
+blocked because mail from a VPN address is almost always spam, and one spammer would get the
+gateway's address onto blocklists that hurt every other client. Only addresses the control plane
+issued may leave, so a client cannot spoof another's source address.
+
+### Living next to an existing server
+
+The fourth gateway also runs a mail server, websites and Docker, and I could not rewrite its
+firewall. So the gateway rules live in their own nftables table, loaded by their own unit, that
+only looks at traffic to or from `wg0`, and runs before the host's own rules so its refusals are
+final. The host keeps ufw; the role adds three rules and removes nothing. I checked the host's
+sites, mail ports and container networking before and after.
+
+### Ansible, and secrets outside the repository
+
+Ansible because what somebody else fills in to reuse this is an inventory, and because a second
+run has to change nothing; I checked that it does not on the fresh hosts. Real hosts, the vault
+and the inventory live in a directory outside the repository. The vault password is in the
+desktop keyring rather than in a file beside the vault, so the encrypted secrets and their key
+are never on disk together in the clear.
+
 ## What I know is missing
 
 - No Windows tunnel. `WindowsServiceTunnel` throws from every member and documents what the real
@@ -273,13 +386,18 @@ true as the table changes and fails when the table changes by accident.
 - The kill switch routes everything into the tunnel but installs no firewall rules, so it does
   not survive the client being killed. Real enforcement means nftables or WFP filters from a
   privileged process, and that belongs on the privileged side of a split I have not built.
+- The Linux client needs `CAP_NET_ADMIN` for `wg-quick`. A shipped client would have a small
+  privileged helper; the demonstration runs the client in a container that has the capability
+  and its own network namespace, so the host's routing is untouched.
 - No address reclamation in the in-memory catalog. It never reuses an address, which is fine for
   a simulation and is the interesting half of the problem in a real control plane. The API does
   reclaim, by taking the lowest free index.
 - No reconnect-on-drop. `TunnelStatistics.IsPeerAlive` is the check a watchdog would use, and
   there is no watchdog calling it.
-- No measurements. Nothing here has been run under load, so there is no number in this repository
-  claiming otherwise. Where a figure would help, the command that prints it is in the README
-  instead.
+- One control plane instance, with the long-poll state in memory. That is the right size for four
+  gateways and would need a shared store to grow.
+- The measurements in the README were taken from one place, a machine whose own traffic already
+  goes through another WireGuard tunnel. They show what the design does, not what a user
+  elsewhere would see; the command that produced them is next to them.
 - The desktop client has no settings screen. Everything is configuration file or command line,
   which is fine for a lab and would not be for a user.

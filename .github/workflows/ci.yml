@@ -40,3 +40,26 @@ jobs:
 
       - name: Test
         run: dotnet test --configuration Release --no-build --verbosity normal
+
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Test the gateway peer sync agent
+        # Standard library only, the same as on the gateways, so nothing is installed.
+        run: python -m unittest discover -s deploy/peer-sync -v
+
+      - name: Lint the playbooks
+        working-directory: deploy
+        run: |
+          pip install ansible-core ansible-lint
+          ansible-galaxy collection install -r requirements.yml
+          ansible-lint bootstrap.yml site.yml

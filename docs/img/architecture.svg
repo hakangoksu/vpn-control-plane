@@ -32,7 +32,7 @@
   <text class="title" x="530" y="58">VpnControl.Api</text>
   <text class="sub"   x="530" y="76">ASP.NET Core minimal API</text>
   <text class="item"  x="530" y="100">ServerEndpoints, PeerEndpoints,</text>
-  <text class="item"  x="530" y="120">HealthEndpoints, ApiKeyEndpointFilter</text>
+  <text class="item"  x="530" y="120">GatewayEndpoints, token filters</text>
   <text class="item"  x="530" y="140">ControlPlaneDbContext  to  SQLite</text>
   <text class="sub"   x="530" y="164">hands out gateways and peer configuration</text>
 
