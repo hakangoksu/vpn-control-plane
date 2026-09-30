@@ -161,11 +161,18 @@ public sealed partial class ConnectionViewModel : ObservableObject, IAsyncDispos
     public string Subtitle => State switch
     {
         ConnectionState.Connected => $"Traffic leaves from {Location}",
-        ConnectionState.Connecting or ConnectionState.Switching => $"Setting up the tunnel to {Location}",
+        ConnectionState.Connecting or ConnectionState.Switching => $"Setting up the tunnel to {TargetLocation}",
         ConnectionState.Disconnecting => "Closing the tunnel",
         ConnectionState.Faulted => Detail,
         _ => "Traffic uses your own connection",
     };
+
+    /// <summary>
+    /// City and country of the gateway a connect or switch is heading for, captured when the
+    /// state changed.
+    /// </summary>
+    [ObservableProperty]
+    private string _targetLocation = "-";
 
     /// <summary>City and country of the gateway in use, or a dash.</summary>
     public string Location => _manager.CurrentServer is VpnServer server ? server.Location : "-";
@@ -297,9 +304,15 @@ public sealed partial class ConnectionViewModel : ObservableObject, IAsyncDispos
     }
 
     /// <summary>Copies a session transition onto the bound properties.</summary>
-    private void OnStateChanged(object? sender, ConnectionStateChangedEventArgs e) =>
+    private void OnStateChanged(object? sender, ConnectionStateChangedEventArgs e)
+    {
+        // Read now, on the thread that raised the change: by the time the posted update runs
+        // on the UI thread, a quick connect may already have finished and cleared it.
+        string target = (_manager.TargetServer ?? _manager.CurrentServer)?.Location ?? "-";
+
         _dispatcher.Post(() =>
         {
+            TargetLocation = target;
             State = e.Current;
             Detail = e.Reason ?? StateText;
             ServerName = _manager.CurrentServer?.Name ?? "-";
@@ -318,6 +331,7 @@ public sealed partial class ConnectionViewModel : ObservableObject, IAsyncDispos
                 LastHandshake = null;
             }
         });
+    }
 
     /// <summary>
     /// Formats a byte count in binary units.

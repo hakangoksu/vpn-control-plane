@@ -2,6 +2,7 @@ using FluentAssertions;
 using VpnControl.Core.Connection;
 using VpnControl.Core.Tunneling;
 using VpnControl.Desktop.Tests.Fakes;
+using VpnControl.Desktop.ViewModels;
 
 namespace VpnControl.Desktop.Tests;
 
@@ -163,5 +164,49 @@ public sealed class ConnectionViewModelTests
         public VpnControl.Desktop.ViewModels.ConnectionViewModel Connection => _harness.Connection;
 
         public void Dispose() => _harness.DisposeAsync().AsTask().GetAwaiter().GetResult();
+    }
+
+    [Fact]
+    public async Task While_connecting_the_subtitle_names_the_destination_not_a_dash()
+    {
+        await using TestHarness harness = TestHarness.Create();
+        await harness.LoadAsync();
+        harness.Select("lt-kun-01");
+        var seen = new List<string>();
+        harness.Connection.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ConnectionViewModel.Subtitle) && harness.Connection.State == ConnectionState.Connecting)
+            {
+                seen.Add(harness.Connection.Subtitle);
+            }
+        };
+
+        await harness.Main.ConnectCommand.ExecuteAsync(null);
+
+        seen.Should().NotBeEmpty();
+        seen.Should().OnlyContain(text => text.Contains("Kaunas, LT"));
+    }
+
+    [Fact]
+    public async Task While_switching_the_subtitle_names_the_new_location()
+    {
+        await using TestHarness harness = TestHarness.Create();
+        await harness.LoadAsync();
+        harness.Select("lt-kun-01");
+        await harness.Main.ConnectCommand.ExecuteAsync(null);
+        var seen = new List<string>();
+        harness.Connection.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ConnectionViewModel.Subtitle) && harness.Connection.State == ConnectionState.Switching)
+            {
+                seen.Add(harness.Connection.Subtitle);
+            }
+        };
+
+        harness.Select("de-fra-01");
+        await harness.Main.PrimaryCommand.ExecuteAsync(null);
+
+        seen.Should().NotBeEmpty();
+        seen.Should().OnlyContain(text => text.Contains("Frankfurt, DE"));
     }
 }

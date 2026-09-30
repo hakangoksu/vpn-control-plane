@@ -92,6 +92,17 @@ public sealed class VpnConnectionManager : IAsyncDisposable
     /// <summary>Gateway in use, or <c>null</c> when there is no session.</summary>
     public VpnServer? CurrentServer => _session?.Server;
 
+    /// <summary>
+    /// Gateway a connect or switch in progress is heading for, or <c>null</c> when nothing is
+    /// in flight.
+    /// </summary>
+    /// <remarks>
+    /// Set before the state changes to <c>Connecting</c> or <c>Switching</c>, so a listener to
+    /// that change can say where the session is going. <see cref="CurrentServer"/> cannot: it
+    /// is empty while connecting and still the old gateway while switching.
+    /// </remarks>
+    public VpnServer? TargetServer { get; private set; }
+
     /// <summary>When the current session came up, or <c>null</c> when there is none.</summary>
     public DateTimeOffset? ConnectedSince => _session?.StartedAt;
 
@@ -194,6 +205,7 @@ public sealed class VpnConnectionManager : IAsyncDisposable
         {
             // Throws when a session already exists, which is the useful behaviour: a
             // caller that meant to move gateway should say so by calling SwitchToAsync.
+            TargetServer = server;
             _stateMachine.TransitionTo(ConnectionState.Connecting, $"Connecting to {server.Name}.");
 
             try
@@ -220,6 +232,7 @@ public sealed class VpnConnectionManager : IAsyncDisposable
         }
         finally
         {
+            TargetServer = null;
             _gate.Release();
         }
     }
@@ -244,6 +257,7 @@ public sealed class VpnConnectionManager : IAsyncDisposable
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            TargetServer = server;
             _stateMachine.TransitionTo(ConnectionState.Switching, $"Switching to {server.Name}.");
 
             try
@@ -269,6 +283,7 @@ public sealed class VpnConnectionManager : IAsyncDisposable
         }
         finally
         {
+            TargetServer = null;
             _gate.Release();
         }
     }
@@ -313,6 +328,7 @@ public sealed class VpnConnectionManager : IAsyncDisposable
         }
         finally
         {
+            TargetServer = null;
             _gate.Release();
         }
     }
