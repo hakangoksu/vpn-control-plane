@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 420" width="900" height="420" role="img" aria-label="Deployment: the desktop client registers with the control plane over HTTPS and sends all traffic straight to the chosen gateway over WireGuard. Each gateway long-polls the control plane with its own token; the control plane never connects to a gateway.">
+  <defs>
+    <style>
+      .box   { fill: none; stroke: #7d8994; stroke-width: 1.5; }
+      .cp    { fill: none; stroke: #c07a2c; stroke-width: 2; }
+      .gw    { fill: none; stroke: #2f8f86; stroke-width: 2; }
+      .title { font: 600 15px ui-sans-serif, "Segoe UI", Helvetica, Arial, sans-serif; fill: #8b95a1; }
+      .tcp   { font: 600 15px ui-sans-serif, "Segoe UI", Helvetica, Arial, sans-serif; fill: #c07a2c; }
+      .tgw   { font: 600 14px ui-sans-serif, "Segoe UI", Helvetica, Arial, sans-serif; fill: #2f8f86; }
+      .item  { font: 400 12.5px ui-monospace, "SF Mono", Menlo, Consolas, monospace; fill: #8b95a1; }
+      .lab   { font: 400 12.5px ui-sans-serif, "Segoe UI", Helvetica, Arial, sans-serif; fill: #8b95a1; }
+      .labc  { font: 600 12.5px ui-sans-serif, "Segoe UI", Helvetica, Arial, sans-serif; fill: #c07a2c; }
+      .labt  { font: 600 12.5px ui-sans-serif, "Segoe UI", Helvetica, Arial, sans-serif; fill: #2f8f86; }
+      .ctrl  { stroke: #c07a2c; stroke-width: 1.8; fill: none; marker-end: url(#aC); }
+      .poll  { stroke: #c07a2c; stroke-width: 1.8; fill: none; stroke-dasharray: 6 4; marker-end: url(#aC); }
+      .data  { stroke: #2f8f86; stroke-width: 3; fill: none; marker-end: url(#aT); }
+    </style>
+    <marker id="aC" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#c07a2c"/>
+    </marker>
+    <marker id="aT" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2f8f86"/>
+    </marker>
+  </defs>
+
+  <!-- Desktop client -->
+  <rect class="box" x="30" y="170" width="190" height="90" rx="8"/>
+  <text class="title" x="125" y="200" text-anchor="middle">Desktop client</text>
+  <text class="item" x="125" y="222" text-anchor="middle">device token</text>
+  <text class="item" x="125" y="240" text-anchor="middle">fresh key per session</text>
+
+  <!-- Control plane -->
+  <rect class="cp" x="330" y="30" width="250" height="110" rx="8"/>
+  <text class="tcp" x="455" y="58" text-anchor="middle">Control plane host</text>
+  <text class="item" x="455" y="82" text-anchor="middle">nginx: TLS, rate limit</text>
+  <text class="item" x="455" y="100" text-anchor="middle">API container, read-only</text>
+  <text class="item" x="455" y="118" text-anchor="middle">SQLite, token hashes</text>
+
+  <!-- Gateways -->
+  <rect class="gw" x="680" y="170" width="190" height="210" rx="8"/>
+  <text class="tgw" x="775" y="198" text-anchor="middle">Gateways</text>
+  <text class="item" x="775" y="222" text-anchor="middle">wg0 + NAT</text>
+  <text class="item" x="775" y="240" text-anchor="middle">nftables</text>
+  <text class="item" x="775" y="258" text-anchor="middle">unbound (DNSSEC)</text>
+  <text class="item" x="775" y="276" text-anchor="middle">peer sync agent</text>
+  <line x1="700" y1="294" x2="850" y2="294" stroke="#2f8f86" stroke-width="1" opacity="0.5"/>
+  <text class="lab" x="775" y="316" text-anchor="middle">Paris · Riga</text>
+  <text class="lab" x="775" y="334" text-anchor="middle">Kansas City · Istanbul</text>
+  <text class="lab" x="775" y="360" text-anchor="middle">IPv6 egress on three of four</text>
+
+  <!-- client registers with control plane -->
+  <path class="ctrl" d="M 175 168 L 175 85 L 326 85"/>
+  <text class="labc" x="185" y="72">1  register public key</text>
+  <text class="lab" x="185" y="120">HTTPS, bearer token</text>
+
+  <!-- gateway polls control plane -->
+  <path class="poll" d="M 775 166 L 775 85 L 584 85"/>
+  <text class="labc" x="600" y="72">2  long poll, then ack</text>
+  <text class="lab" x="600" y="120">gateway token, outbound only</text>
+
+  <!-- data path -->
+  <path class="data" d="M 222 215 L 675 215"/>
+  <text class="labt" x="448" y="205" text-anchor="middle">3  all traffic, WireGuard over UDP</text>
+  <text class="lab" x="448" y="238" text-anchor="middle">the control plane is not on this path</text>
+
+  <!-- what the control plane never does -->
+  <text class="lab" x="448" y="300" text-anchor="middle">No connection from the control plane to any gateway,</text>
+  <text class="lab" x="448" y="318" text-anchor="middle">and no gateway credential stored there.</text>
+</svg>

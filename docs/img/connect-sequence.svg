@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 640" width="900" height="640" role="img" aria-label="Connect sequence: the client generates a key and registers it; the control plane wakes the gateway's held poll; the gateway applies the peer and acknowledges on its next poll; only then does the control plane answer the client, which brings up the interface and completes the first handshake.">
+  <defs>
+    <style>
+      .head  { font: 600 15px ui-sans-serif, "Segoe UI", Helvetica, Arial, sans-serif; fill: #8b95a1; }
+      .headc { font: 600 15px ui-sans-serif, "Segoe UI", Helvetica, Arial, sans-serif; fill: #c07a2c; }
+      .headt { font: 600 15px ui-sans-serif, "Segoe UI", Helvetica, Arial, sans-serif; fill: #2f8f86; }
+      .life  { stroke: #7d8994; stroke-width: 1; stroke-dasharray: 3 5; }
+      .msg   { stroke: #7d8994; stroke-width: 1.6; fill: none; marker-end: url(#aG); }
+      .msgc  { stroke: #c07a2c; stroke-width: 1.8; fill: none; marker-end: url(#aC); }
+      .msgt  { stroke: #2f8f86; stroke-width: 2.4; fill: none; marker-end: url(#aT); }
+      .lab   { font: 400 13px ui-sans-serif, "Segoe UI", Helvetica, Arial, sans-serif; fill: #8b95a1; }
+      .code  { font: 400 12px ui-monospace, "SF Mono", Menlo, Consolas, monospace; fill: #8b95a1; }
+      .time  { font: 600 12px ui-monospace, "SF Mono", Menlo, Consolas, monospace; fill: #2f8f86; }
+      .self  { fill: none; stroke: #7d8994; stroke-width: 1.2; }
+      .span  { stroke: #2f8f86; stroke-width: 2; }
+    </style>
+    <marker id="aG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#7d8994"/></marker>
+    <marker id="aC" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#c07a2c"/></marker>
+    <marker id="aT" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#2f8f86"/></marker>
+  </defs>
+
+  <!-- lanes: client x=170, control plane x=450, gateway x=730 -->
+  <text class="head"  x="170" y="36" text-anchor="middle">Desktop client</text>
+  <text class="headc" x="450" y="36" text-anchor="middle">Control plane</text>
+  <text class="headt" x="730" y="36" text-anchor="middle">Gateway</text>
+  <line class="life" x1="170" y1="50" x2="170" y2="615"/>
+  <line class="life" x1="450" y1="50" x2="450" y2="615"/>
+  <line class="life" x1="730" y1="50" x2="730" y2="615"/>
+
+  <!-- 0: gateway already waiting -->
+  <path class="msgc" d="M 730 80 L 454 80"/>
+  <text class="lab" x="590" y="72" text-anchor="middle">poll held open: applied = n</text>
+
+  <!-- 1: key pair -->
+  <rect class="self" x="160" y="104" width="20" height="26" rx="3"/>
+  <text class="lab" x="190" y="122">generate X25519 key pair</text>
+
+  <!-- 2: register -->
+  <path class="msg" d="M 170 160 L 446 160"/>
+  <text class="lab" x="310" y="150" text-anchor="middle">POST /api/peers, public key</text>
+  <text class="code" x="310" y="178" text-anchor="middle">Authorization: Bearer vpd_…</text>
+
+  <!-- 3: allocate, wake poll -->
+  <text class="lab" x="460" y="206">allocate IPv4 + IPv6, version n+1</text>
+  <path class="msgc" d="M 450 234 L 726 234"/>
+  <text class="lab" x="590" y="226" text-anchor="middle">poll returns list, version n+1</text>
+
+  <!-- 4: gateway applies -->
+  <rect class="self" x="720" y="252" width="20" height="26" rx="3"/>
+  <text class="lab" x="720" y="298" text-anchor="end">validate each peer, wg syncconf</text>
+
+  <!-- 5: ack -->
+  <path class="msgc" d="M 730 326 L 454 326"/>
+  <text class="lab" x="590" y="318" text-anchor="middle">next poll: applied = n+1</text>
+
+  <!-- 6: answer -->
+  <path class="msg" d="M 450 372 L 174 372"/>
+  <text class="lab" x="310" y="362" text-anchor="middle">201, address, gateway key, DNS</text>
+  <text class="code" x="310" y="390" text-anchor="middle">activeOnGateway: true</text>
+
+  <!-- register span -->
+  <line class="span" x1="120" y1="160" x2="120" y2="372"/>
+  <line class="span" x1="114" y1="160" x2="126" y2="160"/>
+  <line class="span" x1="114" y1="372" x2="126" y2="372"/>
+  <text class="time" x="108" y="270" text-anchor="end">672 ms</text>
+
+  <!-- 7: interface up -->
+  <rect class="self" x="160" y="404" width="20" height="26" rx="3"/>
+  <text class="lab" x="190" y="422">wg-quick up: interface, routes, DNS</text>
+  <text class="time" x="108" y="422" text-anchor="end">238 ms</text>
+
+  <!-- 8: handshake -->
+  <path class="msgt" d="M 170 470 L 724 470"/>
+  <path class="msgt" d="M 730 494 L 176 494"/>
+  <text class="lab" x="450" y="460" text-anchor="middle">WireGuard handshake initiation</text>
+  <text class="lab" x="450" y="514" text-anchor="middle">response: the key is already admitted, nothing is dropped</text>
+  <text class="time" x="108" y="486" text-anchor="end">272 ms</text>
+
+  <!-- 9: traffic -->
+  <path class="msgt" d="M 170 560 L 724 560"/>
+  <text class="lab" x="450" y="550" text-anchor="middle">all traffic, straight to the gateway</text>
+  <text class="lab" x="450" y="590" text-anchor="middle">Times: Riga gateway, median of five runs on the real deployment.</text>
+</svg>

@@ -373,6 +373,19 @@ only looks at traffic to or from `wg0`, and runs before the host's own rules so 
 final. The host keeps ufw; the role adds three rules and removes nothing. I checked the host's
 sites, mail ports and container networking before and after.
 
+### Docker for the API, not for the gateways
+
+The API runs in a container because it needs no privilege at all: no capabilities, a read-only
+root filesystem, a loopback-only port. There the container is a real boundary. The gateway
+components are different. WireGuard is a kernel interface, so a container running it needs the
+host's network namespace and `CAP_NET_ADMIN`, and a process with both can rewrite the host's
+firewall and routes from inside the container; the boundary would be nominal. unbound has to
+listen on the tunnel address, which is the same constraint. Docker would also add a root daemon,
+its own iptables rules next to the nftables tables here, and images that unattended upgrades do
+not patch. So the gateway agent runs as a systemd service with the sandbox narrowed to what it
+uses: only `CAP_NET_ADMIN`, a read-only filesystem, a system call filter and no way to gain
+privileges, which is a tighter cage than a default container.
+
 ### Ansible, and secrets outside the repository
 
 Ansible because what somebody else fills in to reuse this is an inventory, and because a second

@@ -10,6 +10,8 @@ existing server also hosts the control plane.
 
 ## What you end up with
 
+![Deployment: the client registers with the control plane over HTTPS and sends traffic straight to a gateway over WireGuard; gateways long-poll the control plane, which never connects to them](../docs/img/deployment.svg)
+
 - A client registers its public key over HTTPS with its own device token, and gets back an
   address and the gateway's key. Traffic then goes straight to the chosen gateway; the control
   plane is not on the data path.
