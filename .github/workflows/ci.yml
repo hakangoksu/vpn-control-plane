@@ -5,9 +5,9 @@ name: build
 # stays green until somebody changes the code.
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
-    branches: [master]
+    branches: [main]
 
 # The default token permissions are wider than this workflow needs. It only
 # reads the checkout, so that is all it is given.
